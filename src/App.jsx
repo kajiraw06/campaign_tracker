@@ -586,6 +586,9 @@ export default function App() {
     setShowAdsModal(false);
   };
 
+  // --- CREATOR SUMMARY (lifted for header cards) ---
+  const [creatorSummary, setCreatorSummary] = useState({ spend: 0, dep: 0, ngr: 0, efficacyRate: null });
+
   // --- CREATOR PERF MODAL STATE ---
   const [showCreatorPerfModal, setShowCreatorPerfModal] = useState(false);
   const [creatorPerfEditKey, setCreatorPerfEditKey] = useState(null);
@@ -725,6 +728,19 @@ export default function App() {
     }), { spend: 0, reg: 0, dep: 0 });
   }, [filteredData]);
 
+  // Global NGR from creatorPerfData within date range
+  const globalCreatorNGR = useMemo(() => {
+    return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
+      const date = key.split('|')[0];
+      if (date >= startDate && date <= endDate) {
+        return sum + (parseFloat(val.ngr) || 0);
+      }
+      return sum;
+    }, 0);
+  }, [creatorPerfData, startDate, endDate]);
+
+  const globalEfficacyRate = totals.spend > 0 ? (globalCreatorNGR / totals.spend) * 100 : null;
+
   // Group by Streamer for Summary Table
   const streamerSummary = useMemo(() => {
     const summary = {};
@@ -774,7 +790,7 @@ export default function App() {
   const totalROI = getROI(totals.spend, totals.dep);
 
   const streamers = [...new Set(data.map(d => d.streamer))].sort();
-  const sites = [...new Set(data.map(d => d.site))].sort();
+  const sites = [...new Set([...data.map(d => d.site), 'COW', 'T2B'])].sort();
   const types = ["Live", "Reels", "General"];
 
   return (
@@ -822,6 +838,7 @@ export default function App() {
                  />
               </div>
 
+              {activeView !== 'creatorReport' && (
               <div className="flex gap-2 bg-white p-1.5 rounded-lg shadow-sm border border-slate-200">
                 <div className="flex items-center px-2 text-slate-400">
                   <Filter size={16} />
@@ -853,6 +870,7 @@ export default function App() {
                   {types.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+              )}
             </div>
           </header>
 
@@ -885,30 +903,30 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard 
-              title="Total Spend" 
-              value={formatPHP(totals.spend)} 
-              icon={<ArrowDownRight className="text-red-500" size={16} />} 
+            <MetricCard
+              title="Total Ad Spend"
+              value={formatPHP(totals.spend)}
+              icon={<ArrowDownRight className="text-red-500" size={16} />}
               color="border-l-4 border-red-500"
             />
-            <MetricCard 
-              title="Total Deposits" 
-              value={formatPHP(totals.dep)} 
-              icon={<ArrowUpRight className="text-emerald-500" size={16} />} 
+            <MetricCard
+              title="Total Deposit"
+              value={formatPHP(totals.dep)}
+              icon={<ArrowUpRight className="text-emerald-500" size={16} />}
               color="border-l-4 border-emerald-500"
             />
-            <MetricCard 
-              title="Net Revenue" 
-              value={formatPHP(totals.dep - totals.spend)} 
-              icon={<DollarSign className="text-indigo-500" size={16} />} 
-              color="border-l-4 border-indigo-500"
+            <MetricCard
+              title="Total NGR"
+              value={formatPHP(globalCreatorNGR)}
+              icon={<DollarSign className={globalCreatorNGR >= 0 ? "text-indigo-500" : "text-red-500"} size={16} />}
+              color={globalCreatorNGR >= 0 ? "border-l-4 border-indigo-500" : "border-l-4 border-red-500"}
             />
-            <MetricCard 
-              title="Total ROI" 
-              value={`${totalROI.toFixed(2)}%`} 
-              icon={<TrendingUp className={totalROI >= 0 ? "text-emerald-600" : "text-red-600"} size={16} />} 
-              subValue={`${formatNum(totals.reg)} Registers`}
-              color={totalROI >= 0 ? "border-l-4 border-emerald-600" : "border-l-4 border-red-600"}
+            <MetricCard
+              title="Efficacy Rate"
+              value={globalEfficacyRate !== null ? `${globalEfficacyRate.toFixed(2)}%` : '0.00%'}
+              icon={<TrendingUp className={globalEfficacyRate !== null && globalEfficacyRate >= 100 ? "text-emerald-600" : "text-amber-500"} size={16} />}
+              subValue="NGR ÷ Ad Spend"
+              color={globalEfficacyRate !== null && globalEfficacyRate >= 100 ? "border-l-4 border-emerald-600" : "border-l-4 border-amber-400"}
             />
           </div>
         </div>
@@ -980,7 +998,10 @@ export default function App() {
                       <td className="p-4 text-slate-500">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${
                           item.site === 'WFL' ? 'bg-blue-100 text-blue-700' : 
-                          item.site === 'RLM' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'
+                          item.site === 'RLM' ? 'bg-purple-100 text-purple-700' :
+                          item.site === 'PP' ? 'bg-orange-100 text-orange-700' :
+                          item.site === 'COW' ? 'bg-teal-100 text-teal-700' :
+                          item.site === 'T2B' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
                         }`}>
                           {item.site}
                         </span>
@@ -1100,6 +1121,7 @@ export default function App() {
           endDate={endDate}
           creatorPerfData={creatorPerfData}
           onEdit={openCreatorPerfModal}
+          onSummaryChange={setCreatorSummary}
           formatPHP={formatPHP}
           streamers={streamers}
           sites={sites}
@@ -1123,7 +1145,7 @@ export default function App() {
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</label>
                   <select value={formValues.site} onChange={e => setFormValues({...formValues, site: e.target.value})} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option>WFL</option><option>RLM</option><option>PP</option>
+                    <option>WFL</option><option>RLM</option><option>PP</option><option>COW</option><option>T2B</option>
                   </select>
                 </div>
               </div>
@@ -1280,7 +1302,7 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     }
   });
 
-  const SITE_LABELS = { WFL: 'WINFORLIFE', RLM: 'ROLLEM', PP: 'PLENTIFUL PLAY' };
+  const SITE_LABELS = { WFL: 'WINFORLIFE', RLM: 'ROLLEM', PP: 'PLENTIFUL PLAY', COW: 'COW', T2B: 'T2B' };
   const getAds = (site, streamer, type) => adsReportData[`${site}|${streamer}|${type}`] || { ggr: 0, bonus: 0, ngr: 0, boosting: 0 };
 
   const fmtVal = (val) => {
@@ -1342,7 +1364,7 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10">
       {siteData.map(({ site, streamerData, siteTotal }) => {
         const label = SITE_LABELS[site] || site;
-        const colorCls = site === 'WFL' ? 'bg-blue-600' : site === 'RLM' ? 'bg-purple-600' : 'bg-orange-600';
+        const colorCls = site === 'WFL' ? 'bg-blue-600' : site === 'RLM' ? 'bg-purple-600' : site === 'PP' ? 'bg-orange-600' : site === 'COW' ? 'bg-teal-600' : site === 'T2B' ? 'bg-rose-600' : 'bg-slate-600';
         return (
           <div key={site} className="space-y-4">
             {/* Site Header */}
@@ -1468,7 +1490,7 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, formatPHP, streamers, sites }) {
+function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites }) {
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
 
@@ -1508,6 +1530,11 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
 
   const totalEfficacy = totals.spend > 0 ? (totals.ngr / totals.spend) * 100 : null;
 
+  // Lift summary up to header
+  React.useEffect(() => {
+    onSummaryChange({ spend: totals.spend, dep: totals.dep, ngr: totals.ngr, efficacyRate: totalEfficacy });
+  }, [totals.spend, totals.dep, totals.ngr, totalEfficacy]);
+
   const fmtVal = (n) => {
     const v = parseFloat(n) || 0;
     if (v === 0) return <span className="text-slate-300">—</span>;
@@ -1527,7 +1554,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     return 'text-red-500 font-semibold';
   };
 
-  const siteColors = { WFL: 'bg-blue-100 text-blue-700', RLM: 'bg-purple-100 text-purple-700', PP: 'bg-orange-100 text-orange-700' };
+  const siteColors = { WFL: 'bg-blue-100 text-blue-700', RLM: 'bg-purple-100 text-purple-700', PP: 'bg-orange-100 text-orange-700', COW: 'bg-teal-100 text-teal-700', T2B: 'bg-rose-100 text-rose-700' };
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
@@ -1556,20 +1583,6 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           </select>
         </div>
 
-        {/* Summary cards */}
-        <div className="flex gap-2 ml-auto flex-wrap">
-          {[
-            { label: 'Total Ad Spend', val: formatPHP(totals.spend), color: 'border-red-400' },
-            { label: 'Total Deposit', val: formatPHP(totals.dep), color: 'border-emerald-400' },
-            { label: 'Total NGR', val: formatPHP(totals.ngr), color: totals.ngr >= 0 ? 'border-indigo-400' : 'border-red-400' },
-            { label: 'Efficacy Rate', val: totalEfficacy !== null ? `${totalEfficacy.toFixed(2)}%` : '—', color: totalEfficacy !== null && totalEfficacy >= 100 ? 'border-emerald-500' : 'border-amber-400' },
-          ].map(c => (
-            <div key={c.label} className={`bg-white border-l-4 ${c.color} border-t border-r border-b border-slate-200 rounded-xl px-4 py-2 shadow-sm min-w-[120px]`}>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{c.label}</div>
-              <div className="text-base font-bold text-slate-900 mt-0.5">{c.val}</div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Main Table */}
