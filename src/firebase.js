@@ -19,8 +19,8 @@ const firebaseConfig = {
   appId:             "YOUR_APP_ID",
 };
 
-// True only when real credentials have been filled in
-export const FIREBASE_CONFIGURED = firebaseConfig.apiKey !== "YOUR_API_KEY";
+// Set to false to use localStorage-only mode (no Firebase sync)
+export const FIREBASE_CONFIGURED = false;
 
 const app = FIREBASE_CONFIGURED ? initializeApp(firebaseConfig) : null;
 export const db = FIREBASE_CONFIGURED ? getFirestore(app) : null;
