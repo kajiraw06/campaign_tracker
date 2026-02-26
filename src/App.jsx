@@ -1428,6 +1428,29 @@ export default function App() {
     return unsub;
   }, []);
 
+  // --- NO STREAM DATA ---
+  const [noStreamData, setNoStreamData] = useState(() => {
+    if (FIREBASE_CONFIGURED) return {};
+    try {
+      const saved = localStorage.getItem('noStreamData');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    if (!FIREBASE_CONFIGURED) {
+      localStorage.setItem('noStreamData', JSON.stringify(noStreamData));
+    }
+  }, [noStreamData]);
+
+  useEffect(() => {
+    if (!FIREBASE_CONFIGURED) return;
+    const unsub = onSnapshot(doc(db, 'config', 'noStreamData'), async (snap) => {
+      if (snap.exists()) setNoStreamData(snap.data());
+    });
+    return unsub;
+  }, []);
+
   // --- ADS EDIT MODAL STATE ---
   const [showAdsModal, setShowAdsModal] = useState(false);
   const [adsEditKey, setAdsEditKey] = useState(null);
@@ -1577,6 +1600,26 @@ export default function App() {
     }
   };
 
+  const handleMarkNoStream = async (date, streamer, site) => {
+    const key = `${date}|${streamer}|${site}`;
+    const updated = { ...noStreamData, [key]: true };
+    if (FIREBASE_CONFIGURED) {
+      await setDoc(doc(db, 'config', 'noStreamData'), updated);
+    } else {
+      setNoStreamData(updated);
+    }
+  };
+
+  const handleUnmarkNoStream = async (key) => {
+    const updated = { ...noStreamData };
+    delete updated[key];
+    if (FIREBASE_CONFIGURED) {
+      await setDoc(doc(db, 'config', 'noStreamData'), updated);
+    } else {
+      setNoStreamData(updated);
+    }
+  };
+
   const handleResetData = async () => {
     if (window.confirm('Reset all data back to the original? All added entries will be lost.')) {
       if (FIREBASE_CONFIGURED) {
@@ -1641,30 +1684,57 @@ export default function App() {
 
   const globalEfficacyRate = totals.spend > 0 ? (globalCreatorNGR / totals.spend) * 100 : null;
 
-  // Group by Streamer for Summary Table
+  // Group by Streamer for Summary Table — merged with adsReportData
   const streamerSummary = useMemo(() => {
     const summary = {};
+
+    // Step 1: accumulate ad spend / reg / dep / live+reels counts from filtered campaign data.
+    // Boosting is the only metric sourced from adsReportData (it doesn't exist in creatorPerfData).
     filteredData.forEach(item => {
       if (!summary[item.streamer]) {
-        summary[item.streamer] = { 
-          name: item.streamer, 
-          site: item.site, 
-          spend: 0, 
-          reg: 0, 
-          dep: 0,
-          liveCount: 0,
-          reelsCount: 0
+        summary[item.streamer] = {
+          name: item.streamer,
+          site: item.site,
+          spend: 0, reg: 0, dep: 0,
+          ggr: 0, bonus: 0, ngr: 0, boosting: 0,
+          liveCount: 0, reelsCount: 0,
         };
       }
-      summary[item.streamer].spend += item.spend;
-      summary[item.streamer].reg += item.reg;
-      summary[item.streamer].dep += item.dep;
-      
-      if (item.type === 'Live') summary[item.streamer].liveCount += 1;
-      if (item.type === 'Reels') summary[item.streamer].reelsCount += 1;
+      const s = summary[item.streamer];
+      s.spend += item.spend;
+      s.reg += item.reg;
+      s.dep += item.dep;
+      if (item.type === 'Live') s.liveCount += 1;
+      else if (item.type === 'Reels') s.reelsCount += 1;
+
+      // Boosting only — avoid double-counting per unique site|streamer|type key
+      const adsKey = `${item.site}|${item.streamer}|${item.type}`;
+      if (!s._adsKeysAdded) s._adsKeysAdded = new Set();
+      if (!s._adsKeysAdded.has(adsKey)) {
+        s._adsKeysAdded.add(adsKey);
+        s.boosting += parseFloat((adsReportData[adsKey] || {}).boosting) || 0;
+      }
     });
-    return Object.values(summary).sort((a, b) => b.dep - a.dep); 
-  }, [filteredData]);
+
+    // Step 2: merge GGR / Bonus / NGR from creatorPerfData (keyed date|streamer|site).
+    // This is the exact same source the Creator Report uses, so totals will always match.
+    Object.entries(creatorPerfData).forEach(([key, val]) => {
+      const [date, streamer, site] = key.split('|');
+      // Respect the active date range and site / streamer filters
+      if (date < startDate || date > endDate) return;
+      if (filterSite !== 'All' && site !== filterSite) return;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return;
+      // Only add to streamers that already appear in the campaign data
+      if (!summary[streamer]) return;
+      summary[streamer].ggr    += parseFloat(val.ggr)    || 0;
+      summary[streamer].bonus  += parseFloat(val.bonus)  || 0;
+      summary[streamer].ngr    += parseFloat(val.ngr)    || 0;
+    });
+
+    return Object.values(summary)
+      .map(({ _adsKeysAdded, ...rest }) => rest)
+      .sort((a, b) => b.dep - a.dep);
+  }, [filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
   // Chart Data (Daily Totals)
   const chartData = useMemo(() => {
@@ -1689,7 +1759,19 @@ export default function App() {
 
   const totalROI = getROI(totals.spend, totals.dep);
 
-  const streamers = [...new Set(data.map(d => d.streamer))].sort();
+  // Streamers filtered by selected site so the dropdown only shows relevant streamers
+  const streamers = useMemo(() => {
+    const source = filterSite === 'All' ? data : data.filter(d => d.site === filterSite);
+    return [...new Set(source.map(d => d.streamer))].sort();
+  }, [data, filterSite]);
+
+  // Reset streamer filter when it no longer belongs to the selected site
+  useEffect(() => {
+    if (filterStreamer !== 'All' && !streamers.includes(filterStreamer)) {
+      setFilterStreamer('All');
+    }
+  }, [streamers, filterStreamer]);
+
   const sites = [...new Set([...data.map(d => d.site), 'COW', 'T2B'])].filter(s => s !== 'PP').sort();
   const types = ["Live", "Reels", "General"];
 
@@ -1705,9 +1787,6 @@ export default function App() {
               <h1 className="text-xl md:text-2xl font-bold text-indigo-900 tracking-tight">Campaign Performance</h1>
               <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                 <Plus size={14} /> Add Entry
-              </button>
-              <button onClick={handleResetData} className="flex items-center gap-1.5 bg-slate-200 hover:bg-slate-300 text-slate-600 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                Reset Data
               </button>
               {loading && FIREBASE_CONFIGURED && (
                 <span className="text-xs text-slate-400 animate-pulse">Syncing...</span>
@@ -1879,63 +1958,80 @@ export default function App() {
                 <tr className="bg-slate-50 text-slate-500 text-sm uppercase tracking-wider">
                   <th className="p-4 font-semibold">Streamer</th>
                   <th className="p-4 font-semibold">Site</th>
-                  <th className="p-4 font-semibold text-center">Lives (Days)</th>
-                  <th className="p-4 font-semibold text-center">Reels (Days)</th>
-                  <th className="p-4 font-semibold text-right">Spend</th>
-                  <th className="p-4 font-semibold text-right">Registers</th>
+                  <th className="p-4 font-semibold text-center">Lives</th>
+                  <th className="p-4 font-semibold text-center">Reels</th>
+                  <th className="p-4 font-semibold text-right">Ad Spend</th>
+                  <th className="p-4 font-semibold text-right">Reg</th>
                   <th className="p-4 font-semibold text-right">Deposits</th>
-                  <th className="p-4 font-semibold text-right">Net Profit</th>
-                  <th className="p-4 font-semibold text-right">ROI %</th>
+                  <th className="p-4 font-semibold text-right">GGR</th>
+                  <th className="p-4 font-semibold text-right">Bonus</th>
+                  <th className="p-4 font-semibold text-right">NGR</th>
+                  <th className="p-4 font-semibold text-right">Boosting</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {streamerSummary.map((item, idx) => {
-                  const roi = getROI(item.spend, item.dep);
-                  const net = item.dep - item.spend;
-                  return (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-medium text-slate-900">{item.name}</td>
-                      <td className="p-4 text-slate-500">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          item.site === 'WFL' ? 'bg-blue-100 text-blue-700' : 
-                          item.site === 'RLM' ? 'bg-purple-100 text-purple-700' :
-                          item.site === 'COW' ? 'bg-teal-100 text-teal-700' :
-                          item.site === 'T2B' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {item.site}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1 text-slate-600">
-                          <Radio size={14} className="text-red-500"/>
-                          {item.liveCount}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1 text-slate-600">
-                          <Video size={14} className="text-blue-500"/>
-                          {item.reelsCount}
-                        </div>
-                      </td>
-                      <td className="p-4 text-right text-slate-600">{formatPHP(item.spend)}</td>
-                      <td className="p-4 text-right text-slate-600">{formatNum(item.reg)}</td>
-                      <td className="p-4 text-right font-medium text-slate-900">{formatPHP(item.dep)}</td>
-                      <td className={`p-4 text-right font-medium ${net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {net >= 0 ? '+' : ''}{formatPHP(net)}
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          roi >= 100 ? 'bg-emerald-100 text-emerald-800' :
-                          roi >= 0 ? 'bg-indigo-50 text-indigo-700' :
-                          'bg-red-50 text-red-700'
-                        }`}>
-                          {roi.toFixed(0)}%
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {streamerSummary.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4 font-medium text-slate-900">{item.name}</td>
+                    <td className="p-4 text-slate-500">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        item.site === 'WFL' ? 'bg-blue-100 text-blue-700' :
+                        item.site === 'RLM' ? 'bg-purple-100 text-purple-700' :
+                        item.site === 'COW' ? 'bg-teal-100 text-teal-700' :
+                        item.site === 'T2B' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                      }`}>{item.site}</span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-1 text-slate-600">
+                        <Radio size={14} className="text-red-500"/>{item.liveCount}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-1 text-slate-600">
+                        <Video size={14} className="text-blue-500"/>{item.reelsCount}
+                      </div>
+                    </td>
+                    <td className="p-4 text-right text-red-500 font-medium">{formatPHP(item.spend)}</td>
+                    <td className="p-4 text-right text-slate-600">{formatNum(item.reg)}</td>
+                    <td className="p-4 text-right text-emerald-600 font-medium">{formatPHP(item.dep)}</td>
+                    <td className={`p-4 text-right ${ item.ggr === 0 ? 'text-slate-300' : item.ggr >= 0 ? 'text-slate-700' : 'text-red-500'}`}>
+                      {item.ggr === 0 ? '—' : new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(item.ggr)}
+                    </td>
+                    <td className={`p-4 text-right ${ item.bonus === 0 ? 'text-slate-300' : 'text-amber-600'}`}>
+                      {item.bonus === 0 ? '—' : new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(item.bonus)}
+                    </td>
+                    <td className={`p-4 text-right font-semibold ${ item.ngr === 0 ? 'text-slate-300' : item.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {item.ngr === 0 ? '—' : new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(item.ngr)}
+                    </td>
+                    <td className={`p-4 text-right ${ item.boosting === 0 ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {item.boosting === 0 ? '—' : new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(item.boosting)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
+              {streamerSummary.length > 0 && (() => {
+                const gt = streamerSummary.reduce((acc, r) => ({
+                  spend: acc.spend + r.spend, reg: acc.reg + r.reg, dep: acc.dep + r.dep,
+                  ggr: acc.ggr + r.ggr, bonus: acc.bonus + r.bonus, ngr: acc.ngr + r.ngr, boosting: acc.boosting + r.boosting,
+                  liveCount: acc.liveCount + r.liveCount, reelsCount: acc.reelsCount + r.reelsCount,
+                }), { spend:0, reg:0, dep:0, ggr:0, bonus:0, ngr:0, boosting:0, liveCount:0, reelsCount:0 });
+                return (
+                  <tfoot>
+                    <tr className="bg-slate-800 text-white text-sm font-bold">
+                      <td className="p-4 uppercase tracking-wider" colSpan={2}>Grand Total</td>
+                      <td className="p-4 text-center">{gt.liveCount}</td>
+                      <td className="p-4 text-center">{gt.reelsCount}</td>
+                      <td className="p-4 text-right">{formatPHP(gt.spend)}</td>
+                      <td className="p-4 text-right">{formatNum(gt.reg)}</td>
+                      <td className="p-4 text-right">{formatPHP(gt.dep)}</td>
+                      <td className={`p-4 text-right ${gt.ggr >= 0 ? '' : 'text-red-300'}`}>{new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(gt.ggr)}</td>
+                      <td className="p-4 text-right opacity-80">{new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(gt.bonus)}</td>
+                      <td className={`p-4 text-right ${gt.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(gt.ngr)}</td>
+                      <td className="p-4 text-right opacity-80">{new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(gt.boosting)}</td>
+                    </tr>
+                  </tfoot>
+                );
+              })()}
             </table>
           </div>
         </div>
@@ -2032,6 +2128,9 @@ export default function App() {
           onEditEntry={openEditModal}
           onDeleteEntry={handleDelete}
           onDeleteDay={handleDeleteDay}
+          noStreamData={noStreamData}
+          onMarkNoStream={handleMarkNoStream}
+          onUnmarkNoStream={handleUnmarkNoStream}
         />
       )}
 
@@ -2415,10 +2514,11 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay }) {
+function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream }) {
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
   const [expandedRow, setExpandedRow] = React.useState(null);
+  const [noStreamDateInput, setNoStreamDateInput] = React.useState('');
 
   // Filter data for the selected creator
   const creatorEntries = data.filter(d =>
@@ -2431,8 +2531,21 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   // Get dates where this creator has entries
   const creatorDates = [...new Set(creatorEntries.map(d => d.date))].sort();
 
+  // Get no-stream keys for this streamer in the selected site + date range
+  const noStreamRows = Object.keys(noStreamData)
+    .filter(key => {
+      const [date, streamer, site] = key.split('|');
+      return streamer === selectedStreamer &&
+        date >= startDate && date <= endDate &&
+        (selectedSite === 'All' || site === selectedSite);
+    })
+    .map(key => {
+      const [date, , site] = key.split('|');
+      return { date, siteName: site, noStream: true, key };
+    });
+
   // Build per-day rows (include dayEntries for inline editing)
-  const rows = creatorDates.map(date => {
+  const entryRows = creatorDates.map(date => {
     const dayEntries = creatorEntries.filter(e => e.date === date);
     const totalSpend = dayEntries.reduce((s, e) => s + e.spend, 0);
     const totalDep = dayEntries.reduce((s, e) => s + e.dep, 0);
@@ -2441,11 +2554,14 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     const key = `${date}|${selectedStreamer}|${siteName}`;
     const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 };
     const efficacyRate = totalSpend > 0 ? (perf.ngr / totalSpend) * 100 : null;
-    return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries };
+    return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: false };
   });
 
-  // Totals
-  const totals = rows.reduce((acc, r) => ({
+  // Merge and sort all rows by date
+  const rows = [...entryRows, ...noStreamRows].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Totals (exclude no-stream rows)
+  const totals = rows.filter(r => !r.noStream).reduce((acc, r) => ({
     spend: acc.spend + r.totalSpend,
     dep: acc.dep + r.totalDep,
     reg: acc.reg + r.totalReg,
@@ -2463,6 +2579,9 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   React.useEffect(() => {
     onSummaryChange({ spend: totals.spend, dep: totals.dep, ngr: totals.ngr, efficacyRate: totalEfficacy });
   }, [totals.spend, totals.dep, totals.ngr, totalEfficacy]);
+
+  // Index of the last actual (non-noStream) row for PENDING badge
+  const lastEntryIdx = rows.reduce((last, r, i) => (!r.noStream ? i : last), -1);
 
   const fmtVal = (n) => {
     const v = parseFloat(n) || 0;
@@ -2517,6 +2636,28 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
         >
           <Plus size={15}/> Add Day
         </button>
+        {/* No Stream date picker */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={noStreamDateInput}
+            min={startDate}
+            max={endDate}
+            onChange={e => setNoStreamDateInput(e.target.value)}
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          <button
+            onClick={() => {
+              if (!noStreamDateInput) return;
+              const site = selectedSite !== 'All' ? selectedSite : (data.find(d => d.streamer === selectedStreamer)?.site || 'WFL');
+              onMarkNoStream(noStreamDateInput, selectedStreamer, site);
+              setNoStreamDateInput('');
+            }}
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors whitespace-nowrap"
+          >
+            <X size={13}/> Mark No Stream
+          </button>
+        </div>
       </div>
 
       {/* Main Table */}
@@ -2541,7 +2682,6 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                 <th className="px-2 py-2 text-right font-semibold">Win/Loss</th>
                 <th className="px-2 py-2 text-right font-semibold">Bonus</th>
                 <th className="px-2 py-2 text-right font-semibold">NGR</th>
-                <th className="px-2 py-2 text-right font-semibold">Efficacy %</th>
                 <th className="px-2 py-2 text-center font-semibold">Status</th>
                 <th className="px-2 py-2 text-center font-semibold">Actions</th>
               </tr>
@@ -2549,13 +2689,39 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400 text-sm">
-                    No data for <strong>{selectedStreamer}</strong> in the selected date range.
+                  <td colSpan={13} className="px-4 py-10 text-center text-slate-400 text-sm">
+                    No data for <strong>{selectedStreamer}</strong> in the selected date range. Use <span className="text-amber-600 font-semibold">Mark No Stream</span> to record days with no activity.
                   </td>
                 </tr>
               )}
               {rows.map((row, idx) => (
                 <React.Fragment key={idx}>
+                  {row.noStream ? (
+                    <tr className="bg-slate-100/80 text-slate-400 italic">
+                      <td className="px-2 py-2 font-medium text-slate-500 whitespace-nowrap">{fmtDate(row.date)}</td>
+                      <td className="px-2 py-2">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
+                      </td>
+                      <td colSpan={9} className="px-2 py-2 text-center">
+                        <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-semibold tracking-wider">
+                          <X size={11} className="text-slate-400"/> NO STREAM
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-500 border border-slate-300">NO STREAM</span>
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          onClick={() => onUnmarkNoStream(row.key)}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Remove no-stream marker"
+                        >
+                          <Trash2 size={12}/>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                  <>
                   <tr className={`hover:bg-green-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
                     <td className="px-2 py-2 font-medium text-slate-700 whitespace-nowrap">{fmtDate(row.date)}</td>
                     <td className="px-2 py-2">
@@ -2570,11 +2736,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                     <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
-                    <td className={`px-2 py-2 text-right ${efficacyColor(row.efficacyRate)}`}>
-                      {row.efficacyRate !== null ? `${row.efficacyRate.toFixed(2)}%` : <span className="text-slate-300">—</span>}
-                    </td>
                     <td className="px-2 py-2 text-center">
-                      {idx === rows.length - 1
+                      {idx === lastEntryIdx
                         ? <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">PENDING</span>
                         : <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">SUCCESS</span>}
                     </td>
@@ -2602,7 +2765,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                   {/* Inline entries sub-row */}
                   {expandedRow === row.date && (
                     <tr className="bg-indigo-50/60">
-                      <td colSpan={14} className="px-6 py-3">
+                      <td colSpan={13} className="px-6 py-3">
                         <div className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
                         <table className="w-full text-xs">
                           <thead>
@@ -2649,6 +2812,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                         </button>
                       </td>
                     </tr>
+                  )}
+                  </>
                   )}
                 </React.Fragment>
               ))}
