@@ -1559,6 +1559,18 @@ export default function App() {
     }
   };
 
+  const handleDeleteDay = async (dayEntries) => {
+    if (window.confirm(`Delete all ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day?`)) {
+      if (FIREBASE_CONFIGURED) {
+        const batch = writeBatch(db);
+        dayEntries.forEach(entry => batch.delete(doc(db, 'entries', entry.id)));
+        await batch.commit();
+      } else {
+        setData(prev => prev.filter(d => !dayEntries.includes(d)));
+      }
+    }
+  };
+
   const handleResetData = async () => {
     if (window.confirm('Reset all data back to the original? All added entries will be lost.')) {
       if (FIREBASE_CONFIGURED) {
@@ -2013,6 +2025,7 @@ export default function App() {
           }}
           onEditEntry={openEditModal}
           onDeleteEntry={handleDelete}
+          onDeleteDay={handleDeleteDay}
         />
       )}
 
@@ -2378,7 +2391,7 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry }) {
+function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay }) {
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
   const [expandedRow, setExpandedRow] = React.useState(null);
@@ -2542,6 +2555,14 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                         title="View / edit campaign entries"
                       >
                         <BarChart2 size={13}/>
+                      </button>
+                      {/* Delete all entries for this day */}
+                      <button
+                        onClick={() => onDeleteDay(row.dayEntries)}
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete all entries for this day"
+                      >
+                        <Trash2 size={13}/>
                       </button>
                     </td>
                   </tr>
