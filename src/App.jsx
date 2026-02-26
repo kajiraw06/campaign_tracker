@@ -1474,7 +1474,7 @@ export default function App() {
   const [showCreatorPerfModal, setShowCreatorPerfModal] = useState(false);
   const [creatorPerfEditKey, setCreatorPerfEditKey] = useState(null);
   const [creatorPerfLabel, setCreatorPerfLabel] = useState('');
-  const emptyCreatorPerfForm = { ggr: '', bonus: '', ngr: '' };
+  const emptyCreatorPerfForm = { ggr: '', bonus: '', ngr: '', activePl: '', validTurnover: '', totalWithdrawal: '' };
   const [creatorPerfFormValues, setCreatorPerfFormValues] = useState(emptyCreatorPerfForm);
 
   const openCreatorPerfModal = (date, streamer, site) => {
@@ -1486,6 +1486,9 @@ export default function App() {
       ggr: existing.ggr !== undefined ? String(existing.ggr) : '',
       bonus: existing.bonus !== undefined ? String(existing.bonus) : '',
       ngr: existing.ngr !== undefined ? String(existing.ngr) : '',
+      activePl: existing.activePl !== undefined ? String(existing.activePl) : '',
+      validTurnover: existing.validTurnover !== undefined ? String(existing.validTurnover) : '',
+      totalWithdrawal: existing.totalWithdrawal !== undefined ? String(existing.totalWithdrawal) : '',
     });
     setShowCreatorPerfModal(true);
   };
@@ -1497,6 +1500,9 @@ export default function App() {
         ggr: parseFloat(creatorPerfFormValues.ggr) || 0,
         bonus: parseFloat(creatorPerfFormValues.bonus) || 0,
         ngr: parseFloat(creatorPerfFormValues.ngr) || 0,
+        activePl: parseFloat(creatorPerfFormValues.activePl) || 0,
+        validTurnover: parseFloat(creatorPerfFormValues.validTurnover) || 0,
+        totalWithdrawal: parseFloat(creatorPerfFormValues.totalWithdrawal) || 0,
       },
     };
     if (FIREBASE_CONFIGURED) {
@@ -2138,27 +2144,45 @@ export default function App() {
       {/* CREATOR PERF EDIT MODAL */}
       {showCreatorPerfModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowCreatorPerfModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-slate-800">Edit Daily GGR Data</h2>
+              <h2 className="text-lg font-bold text-slate-800">Edit Daily EOD Data</h2>
               <button onClick={() => setShowCreatorPerfModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
             </div>
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mb-4">
               <p className="text-xs font-bold text-indigo-700 tracking-wider">{creatorPerfLabel}</p>
             </div>
             <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">GGR (Win/Loss)</label>
-                <input type="number" value={creatorPerfFormValues.ggr} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, ggr: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Active PL</label>
+                  <input type="number" value={creatorPerfFormValues.activePl} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, activePl: e.target.value})} placeholder="0" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Valid Turnover</label>
+                  <input type="number" value={creatorPerfFormValues.validTurnover} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, validTurnover: e.target.value})} placeholder="0" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Bonus</label>
-                <input type="number" value={creatorPerfFormValues.bonus} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, bonus: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">GGR (Win/Loss)</label>
+                  <input type="number" value={creatorPerfFormValues.ggr} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, ggr: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Bonus</label>
+                  <input type="number" value={creatorPerfFormValues.bonus} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, bonus: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">NGR (Net Gaming Revenue)</label>
-                <input type="number" value={creatorPerfFormValues.ngr} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, ngr: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
-                <p className="text-[10px] text-slate-400 mt-1">Efficacy Rate = NGR ÷ Ad Spend</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">NGR</label>
+                  <input type="number" value={creatorPerfFormValues.ngr} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, ngr: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                  <p className="text-[10px] text-slate-400 mt-1">Efficacy = NGR ÷ Ad Spend</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Withdrawal</label>
+                  <input type="number" value={creatorPerfFormValues.totalWithdrawal} onChange={e => setCreatorPerfFormValues({...creatorPerfFormValues, totalWithdrawal: e.target.value})} placeholder="0.00" className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
               </div>
             </div>
             <div className="flex gap-3 mt-5">
@@ -2415,7 +2439,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     const totalReg = dayEntries.reduce((s, e) => s + e.reg, 0);
     const siteName = dayEntries[0]?.site || '';
     const key = `${date}|${selectedStreamer}|${siteName}`;
-    const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0 };
+    const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 };
     const efficacyRate = totalSpend > 0 ? (perf.ngr / totalSpend) * 100 : null;
     return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries };
   });
@@ -2428,7 +2452,10 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     ggr: acc.ggr + (r.ggr || 0),
     bonus: acc.bonus + (r.bonus || 0),
     ngr: acc.ngr + (r.ngr || 0),
-  }), { spend: 0, dep: 0, reg: 0, ggr: 0, bonus: 0, ngr: 0 });
+    activePl: acc.activePl + (r.activePl || 0),
+    validTurnover: acc.validTurnover + (r.validTurnover || 0),
+    totalWithdrawal: acc.totalWithdrawal + (r.totalWithdrawal || 0),
+  }), { spend: 0, dep: 0, reg: 0, ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 });
 
   const totalEfficacy = totals.spend > 0 ? (totals.ngr / totals.spend) * 100 : null;
 
@@ -2506,19 +2533,23 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                 <th className="px-4 py-3 text-left font-semibold">Day</th>
                 <th className="px-4 py-3 text-left font-semibold">Site</th>
                 <th className="px-4 py-3 text-right font-semibold">Reg</th>
+                <th className="px-4 py-3 text-right font-semibold">Active PL</th>
+                <th className="px-4 py-3 text-right font-semibold">Valid Turnover</th>
                 <th className="px-4 py-3 text-right font-semibold">Ad Spend</th>
                 <th className="px-4 py-3 text-right font-semibold">Total Deposit</th>
-                <th className="px-4 py-3 text-right font-semibold">GGR</th>
+                <th className="px-4 py-3 text-right font-semibold">Total Withdrawal</th>
+                <th className="px-4 py-3 text-right font-semibold">Win/Loss</th>
                 <th className="px-4 py-3 text-right font-semibold">Bonus</th>
                 <th className="px-4 py-3 text-right font-semibold">NGR</th>
                 <th className="px-4 py-3 text-right font-semibold">Efficacy %</th>
+                <th className="px-4 py-3 text-center font-semibold">Status</th>
                 <th className="px-4 py-3 text-center font-semibold w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-slate-400 text-sm">
+                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400 text-sm">
                     No data for <strong>{selectedStreamer}</strong> in the selected date range.
                   </td>
                 </tr>
@@ -2531,13 +2562,21 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-600">{row.totalReg}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3 text-right text-red-500 font-medium">{formatPHP(row.totalSpend)}</td>
                     <td className="px-4 py-3 text-right text-emerald-600 font-medium">{formatPHP(row.totalDep)}</td>
+                    <td className="px-4 py-3 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300">—</span>}</td>
                     <td className={`px-4 py-3 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-4 py-3 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-4 py-3 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
                     <td className={`px-4 py-3 text-right ${efficacyColor(row.efficacyRate)}`}>
                       {row.efficacyRate !== null ? `${row.efficacyRate.toFixed(2)}%` : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {idx === rows.length - 1
+                        ? <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">PENDING</span>
+                        : <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">SUCCESS</span>}
                     </td>
                     <td className="px-4 py-3 text-center flex items-center justify-center gap-1">
                       {/* Edit GGR/Bonus/NGR */}
@@ -2569,7 +2608,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                   {/* Inline entries sub-row */}
                   {expandedRow === row.date && (
                     <tr className="bg-indigo-50/60">
-                      <td colSpan={10} className="px-6 py-3">
+                      <td colSpan={14} className="px-6 py-3">
                         <div className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
                         <table className="w-full text-xs">
                           <thead>
@@ -2625,14 +2664,18 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                 <tr className="bg-green-900 text-white font-bold text-sm">
                   <td className="px-4 py-3 uppercase tracking-wider" colSpan={2}>{selectedStreamer} Total</td>
                   <td className="px-4 py-3 text-right">{totals.reg}</td>
+                  <td className="px-4 py-3 text-right">{totals.activePl ? totals.activePl.toLocaleString() : '—'}</td>
+                  <td className="px-4 py-3 text-right">{totals.validTurnover ? totals.validTurnover.toLocaleString() : '—'}</td>
                   <td className="px-4 py-3 text-right">{formatPHP(totals.spend)}</td>
                   <td className="px-4 py-3 text-right">{formatPHP(totals.dep)}</td>
+                  <td className="px-4 py-3 text-right opacity-80">{totals.totalWithdrawal ? `-${totals.totalWithdrawal.toLocaleString()}` : '—'}</td>
                   <td className={`px-4 py-3 text-right ${totals.ggr >= 0 ? '' : 'text-red-300'}`}>{fmtVal(totals.ggr)}</td>
                   <td className="px-4 py-3 text-right opacity-80">{fmtVal(totals.bonus)}</td>
                   <td className={`px-4 py-3 text-right ${totals.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmtVal(totals.ngr)}</td>
                   <td className={`px-4 py-3 text-right ${totalEfficacy !== null && totalEfficacy >= 100 ? 'text-emerald-300' : totalEfficacy !== null ? 'text-amber-300' : ''}`}>
                     {totalEfficacy !== null ? `${totalEfficacy.toFixed(2)}%` : '—'}
                   </td>
+                  <td></td>
                   <td></td>
                 </tr>
               </tfoot>
