@@ -2588,14 +2588,6 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       >
                         <Edit2 size={12}/>
                       </button>
-                      {/* Expand/collapse campaign entries */}
-                      <button
-                        onClick={() => setExpandedRow(expandedRow === row.date ? null : row.date)}
-                        className={`p-1 rounded transition-colors ${expandedRow === row.date ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-                        title="View / edit campaign entries"
-                      >
-                        <BarChart2 size={12}/>
-                      </button>
                       {/* Delete all entries for this day */}
                       <button
                         onClick={() => onDeleteDay(row.dayEntries)}
