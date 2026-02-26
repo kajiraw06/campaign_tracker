@@ -2527,23 +2527,23 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           <div className="text-xs text-slate-400 ml-auto">{rows.length} day{rows.length !== 1 ? 's' : ''}</div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="bg-green-900 text-white text-xs uppercase tracking-wider">
-                <th className="px-4 py-3 text-left font-semibold">Day</th>
-                <th className="px-4 py-3 text-left font-semibold">Site</th>
-                <th className="px-4 py-3 text-right font-semibold">Reg</th>
-                <th className="px-4 py-3 text-right font-semibold">Active PL</th>
-                <th className="px-4 py-3 text-right font-semibold">Valid Turnover</th>
-                <th className="px-4 py-3 text-right font-semibold">Ad Spend</th>
-                <th className="px-4 py-3 text-right font-semibold">Total Deposit</th>
-                <th className="px-4 py-3 text-right font-semibold">Total Withdrawal</th>
-                <th className="px-4 py-3 text-right font-semibold">Win/Loss</th>
-                <th className="px-4 py-3 text-right font-semibold">Bonus</th>
-                <th className="px-4 py-3 text-right font-semibold">NGR</th>
-                <th className="px-4 py-3 text-right font-semibold">Efficacy %</th>
-                <th className="px-4 py-3 text-center font-semibold">Status</th>
-                <th className="px-4 py-3 text-center font-semibold w-24">Actions</th>
+                <th className="px-2 py-2 text-left font-semibold">Day</th>
+                <th className="px-2 py-2 text-left font-semibold">Site</th>
+                <th className="px-2 py-2 text-right font-semibold">Reg</th>
+                <th className="px-2 py-2 text-right font-semibold">Active PL</th>
+                <th className="px-2 py-2 text-right font-semibold">Valid Turnover</th>
+                <th className="px-2 py-2 text-right font-semibold">Ad Spend</th>
+                <th className="px-2 py-2 text-right font-semibold">Total Deposit</th>
+                <th className="px-2 py-2 text-right font-semibold">Withdrawal</th>
+                <th className="px-2 py-2 text-right font-semibold">Win/Loss</th>
+                <th className="px-2 py-2 text-right font-semibold">Bonus</th>
+                <th className="px-2 py-2 text-right font-semibold">NGR</th>
+                <th className="px-2 py-2 text-right font-semibold">Efficacy %</th>
+                <th className="px-2 py-2 text-center font-semibold">Status</th>
+                <th className="px-2 py-2 text-center font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -2557,52 +2557,54 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
               {rows.map((row, idx) => (
                 <React.Fragment key={idx}>
                   <tr className={`hover:bg-green-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                    <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">{fmtDate(row.date)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
+                    <td className="px-2 py-2 font-medium text-slate-700 whitespace-nowrap">{fmtDate(row.date)}</td>
+                    <td className="px-2 py-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{row.totalReg}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300">—</span>}</td>
-                    <td className="px-4 py-3 text-right text-red-500 font-medium">{formatPHP(row.totalSpend)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-600 font-medium">{formatPHP(row.totalDep)}</td>
-                    <td className="px-4 py-3 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300">—</span>}</td>
-                    <td className={`px-4 py-3 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
-                    <td className="px-4 py-3 text-right text-amber-600">{fmtVal(row.bonus)}</td>
-                    <td className={`px-4 py-3 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
-                    <td className={`px-4 py-3 text-right ${efficacyColor(row.efficacyRate)}`}>
+                    <td className="px-2 py-2 text-right text-slate-600">{row.totalReg}</td>
+                    <td className="px-2 py-2 text-right text-slate-600">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-slate-600">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-red-500 font-medium">{formatPHP(row.totalSpend)}</td>
+                    <td className="px-2 py-2 text-right text-emerald-600 font-medium">{formatPHP(row.totalDep)}</td>
+                    <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300">—</span>}</td>
+                    <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
+                    <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
+                    <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
+                    <td className={`px-2 py-2 text-right ${efficacyColor(row.efficacyRate)}`}>
                       {row.efficacyRate !== null ? `${row.efficacyRate.toFixed(2)}%` : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-2 py-2 text-center">
                       {idx === rows.length - 1
-                        ? <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">PENDING</span>
-                        : <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">SUCCESS</span>}
+                        ? <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">PENDING</span>
+                        : <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">SUCCESS</span>}
                     </td>
-                    <td className="px-4 py-3 text-center flex items-center justify-center gap-1">
+                    <td className="px-2 py-2 text-center">
+                      <div className="flex items-center justify-center gap-0.5">
                       {/* Edit GGR/Bonus/NGR */}
                       <button
                         onClick={() => onEdit(row.date, selectedStreamer, row.siteName)}
-                        className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
                         title="Edit GGR / Bonus / NGR"
                       >
-                        <Edit2 size={13}/>
+                        <Edit2 size={12}/>
                       </button>
                       {/* Expand/collapse campaign entries */}
                       <button
                         onClick={() => setExpandedRow(expandedRow === row.date ? null : row.date)}
-                        className={`p-1.5 rounded-lg transition-colors ${expandedRow === row.date ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                        className={`p-1 rounded transition-colors ${expandedRow === row.date ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
                         title="View / edit campaign entries"
                       >
-                        <BarChart2 size={13}/>
+                        <BarChart2 size={12}/>
                       </button>
                       {/* Delete all entries for this day */}
                       <button
                         onClick={() => onDeleteDay(row.dayEntries)}
-                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="Delete all entries for this day"
                       >
-                        <Trash2 size={13}/>
+                        <Trash2 size={12}/>
                       </button>
+                      </div>
                     </td>
                   </tr>
                   {/* Inline entries sub-row */}
@@ -2662,17 +2664,17 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
             {rows.length > 0 && (
               <tfoot>
                 <tr className="bg-green-900 text-white font-bold text-sm">
-                  <td className="px-4 py-3 uppercase tracking-wider" colSpan={2}>{selectedStreamer} Total</td>
-                  <td className="px-4 py-3 text-right">{totals.reg}</td>
-                  <td className="px-4 py-3 text-right">{totals.activePl ? totals.activePl.toLocaleString() : '—'}</td>
-                  <td className="px-4 py-3 text-right">{totals.validTurnover ? totals.validTurnover.toLocaleString() : '—'}</td>
-                  <td className="px-4 py-3 text-right">{formatPHP(totals.spend)}</td>
-                  <td className="px-4 py-3 text-right">{formatPHP(totals.dep)}</td>
-                  <td className="px-4 py-3 text-right opacity-80">{totals.totalWithdrawal ? `-${totals.totalWithdrawal.toLocaleString()}` : '—'}</td>
-                  <td className={`px-4 py-3 text-right ${totals.ggr >= 0 ? '' : 'text-red-300'}`}>{fmtVal(totals.ggr)}</td>
-                  <td className="px-4 py-3 text-right opacity-80">{fmtVal(totals.bonus)}</td>
-                  <td className={`px-4 py-3 text-right ${totals.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmtVal(totals.ngr)}</td>
-                  <td className={`px-4 py-3 text-right ${totalEfficacy !== null && totalEfficacy >= 100 ? 'text-emerald-300' : totalEfficacy !== null ? 'text-amber-300' : ''}`}>
+                  <td className="px-2 py-2 uppercase tracking-wider" colSpan={2}>{selectedStreamer} Total</td>
+                  <td className="px-2 py-2 text-right">{totals.reg}</td>
+                  <td className="px-2 py-2 text-right">{totals.activePl ? totals.activePl.toLocaleString() : '—'}</td>
+                  <td className="px-2 py-2 text-right">{totals.validTurnover ? totals.validTurnover.toLocaleString() : '—'}</td>
+                  <td className="px-2 py-2 text-right">{formatPHP(totals.spend)}</td>
+                  <td className="px-2 py-2 text-right">{formatPHP(totals.dep)}</td>
+                  <td className="px-2 py-2 text-right opacity-80">{totals.totalWithdrawal ? `-${totals.totalWithdrawal.toLocaleString()}` : '—'}</td>
+                  <td className={`px-2 py-2 text-right ${totals.ggr >= 0 ? '' : 'text-red-300'}`}>{fmtVal(totals.ggr)}</td>
+                  <td className="px-2 py-2 text-right opacity-80">{fmtVal(totals.bonus)}</td>
+                  <td className={`px-2 py-2 text-right ${totals.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmtVal(totals.ngr)}</td>
+                  <td className={`px-2 py-2 text-right ${totalEfficacy !== null && totalEfficacy >= 100 ? 'text-emerald-300' : totalEfficacy !== null ? 'text-amber-300' : ''}`}>
                     {totalEfficacy !== null ? `${totalEfficacy.toFixed(2)}%` : '—'}
                   </td>
                   <td></td>
