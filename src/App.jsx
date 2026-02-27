@@ -1,739 +1,230 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
-import { db, FIREBASE_CONFIGURED } from './firebase';
-import {
-  collection, doc, onSnapshot, addDoc, updateDoc,
-  deleteDoc, writeBatch, getDocs, setDoc,
-} from 'firebase/firestore';
+// Firebase removed — localStorage only mode.
 
 // --- DATA SOURCE ---
 const rawData = [
-  // --- JAN 23 ---
-  { date: '2026-01-23', site: 'WFL', streamer: 'HolyFather', spend: 689.62, reg: 91, dep: 2750.00, type: 'Live', link: 'https://www.facebook.com/watch/live/?v=885683144393946' },
-  { date: '2026-01-23', site: 'RLM', streamer: 'Pepper', spend: 330.97, reg: 12, dep: 0.00, type: 'Reels', link: 'https://www.facebook.com/reel/1174627438196210' },
-  { date: '2026-01-23', site: 'RLM', streamer: 'AJ', spend: 127.10, reg: 2, dep: 2000.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-23', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 15400.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-01-23', site: 'RLM', streamer: 'Jape', spend: 0, reg: 0, dep: 700.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-23', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 1, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- JAN 24 ---
-  { date: '2026-01-24', site: 'WFL', streamer: 'HolyFather', spend: 2878.97, reg: 87, dep: 9155.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-24', site: 'WFL', streamer: 'Jason', spend: 992.27, reg: 5, dep: 500.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/1222680836504331' },
-  { date: '2026-01-24', site: 'WFL', streamer: 'Jason', spend: 28.65, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/videos/2024003294810360' },
-  { date: '2026-01-24', site: 'WFL', streamer: 'Aether', spend: 619.78, reg: 2, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/1211344391104087' },
-  { date: '2026-01-24', site: 'WFL', streamer: 'Aether', spend: 393.78, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'Pepper', spend: 1016.57, reg: 56, dep: 4600.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/2286907945120179' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'Pepper', spend: 1968.02, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'AJ', spend: 1027.69, reg: 26, dep: 8168.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/719770387658466' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'Yuji', spend: 1139.34, reg: 17, dep: 1195.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/2083950799106728' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 2800.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-01-24', site: 'RLM', streamer: 'Jape', spend: 0, reg: 0, dep: 900.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-
-  // --- JAN 25 ---
-  { date: '2026-01-25', site: 'WFL', streamer: 'HolyFather', spend: 3667.75, reg: 114, dep: 24945.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-25', site: 'WFL', streamer: 'Jason', spend: 1502.76, reg: 7, dep: 650.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-25', site: 'WFL', streamer: 'Jason', spend: 1313.79, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-25', site: 'WFL', streamer: 'Aether', spend: 829.04, reg: 7, dep: 400.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-01-25', site: 'WFL', streamer: 'Aether', spend: 1115.41, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-25', site: 'WFL', streamer: 'Neggy', spend: 0, reg: 6, dep: 1700.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Pepper', spend: 980.72, reg: 27, dep: 6200.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Pepper', spend: 1370.11, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'AJ', spend: 868.00, reg: 26, dep: 9400.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'AJ', spend: 425.84, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Yuji', spend: 681.78, reg: 19, dep: 1633.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Yuji', spend: 430.49, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Jape', spend: 471.41, reg: 3, dep: 600.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 3900.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-01-25', site: 'RLM', streamer: 'Sainty', spend: 0, reg: 0, dep: 3457.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-
-  // --- JAN 26 ---
-  { date: '2026-01-26', site: 'WFL', streamer: 'Jason', spend: 1338.83, reg: 10, dep: 1430.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-26', site: 'WFL', streamer: 'Jason', spend: 1663.53, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-26', site: 'WFL', streamer: 'HolyFather', spend: 1904.14, reg: 141, dep: 24590.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-26', site: 'WFL', streamer: 'Aether', spend: 649.85, reg: 0, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-01-26', site: 'WFL', streamer: 'Aether', spend: 585.73, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-26', site: 'WFL', streamer: 'Neggy', spend: 35.32, reg: 2, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Pepper', spend: 1005.39, reg: 29, dep: 5400.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Pepper', spend: 2568.09, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'AJ', spend: 1853.24, reg: 17, dep: 6081.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'AJ', spend: 937.98, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Yuji', spend: 1874.16, reg: 11, dep: 850.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Yuji', spend: 701.98, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Jape', spend: 671.62, reg: 5, dep: 1700.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 5500.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-01-26', site: 'RLM', streamer: 'Sainty', spend: 0, reg: 0, dep: 2539.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-
-  // --- JAN 27 ---
-  { date: '2026-01-27', site: 'WFL', streamer: 'Jason', spend: 1127.48, reg: 4, dep: 850.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'Jason', spend: 1979.10, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'HolyFather', spend: 2176.02, reg: 123, dep: 35805.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'Neggy', spend: 733.55, reg: 6, dep: 1700.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'Neggy', spend: 163.60, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'Aether', spend: 179.03, reg: 3, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-01-27', site: 'WFL', streamer: 'Aether', spend: 1504.10, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'AJ', spend: 988.21, reg: 19, dep: 3751.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'AJ', spend: 1742.59, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Yuji', spend: 740.36, reg: 3, dep: 1220.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Yuji', spend: 1493.01, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Pepper', spend: 681.82, reg: 11, dep: 2900.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Pepper', spend: 816.93, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Jape', spend: 1161.74, reg: 7, dep: 6440.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-27', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 1500.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- JAN 28 ---
-  { date: '2026-01-28', site: 'WFL', streamer: 'Jason', spend: 1811.06, reg: 11, dep: 1500.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'Jason', spend: 1861.83, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'HolyFather', spend: 3614.59, reg: 53, dep: 12637.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'HolyFather', spend: 2.99, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/100084497334397/reels/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'Neggy', spend: 839.04, reg: 6, dep: 1440.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'Neggy', spend: 872.41, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-01-28', site: 'WFL', streamer: 'Aether', spend: 720.25, reg: 0, dep: 0.00, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Pepper', spend: 871.68, reg: 10, dep: 1450.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Pepper', spend: 967.76, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'AJ', spend: 1836.84, reg: 21, dep: 4742.00, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Yuji', spend: 37.80, reg: 0, dep: 0, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Yuji', spend: 1182.51, reg: 7, dep: 2380.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Jape', spend: 794.34, reg: 2, dep: 6600.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Sainty', spend: 101.69, reg: 0, dep: 0.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-01-28', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 3000.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- JAN 29 ---
-  { date: '2026-01-29', site: 'WFL', streamer: 'HolyFather', spend: 3374.46, reg: 149, dep: 23699.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'HolyFather', spend: 279.60, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/100084497334397/reels/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'Jason', spend: 1311.13, reg: 13, dep: 2600.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'Jason', spend: 1346.51, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'Neggy', spend: 900.99, reg: 1, dep: 400.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'Aether', spend: 1423.22, reg: 1, dep: 900.00, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-29', site: 'WFL', streamer: 'GhostWrecker', spend: 0, reg: 6, dep: 700.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'AJ', spend: 616.22, reg: 8, dep: 3428.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'AJ', spend: 1035.15, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'Jape', spend: 994.83, reg: 20, dep: 3608.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'Yuji', spend: 1013.25, reg: 7, dep: 800.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'Pepper', spend: 1496.82, reg: 12, dep: 2801.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'Sainty', spend: 1308.68, reg: 4, dep: 2400.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-01-29', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- JAN 30 ---
-  { date: '2026-01-30', site: 'WFL', streamer: 'HolyFather', spend: 1594.24, reg: 131, dep: 16175.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'HolyFather', spend: 580.33, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/100084497334397/reels/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'Jason', spend: 1095.54, reg: 10, dep: 1540.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'Jason', spend: 1859.04, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'Neggy', spend: 1243.47, reg: 3, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'GhostWrecker', spend: 426.90, reg: 0, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'Aether', spend: 867.37, reg: 24, dep: 2300.00, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-30', site: 'WFL', streamer: 'ATO', spend: 60.04, reg: 4, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'AJ', spend: 415.07, reg: 9, dep: 10451.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'AJ', spend: 1199.83, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'Yuji', spend: 1840.85, reg: 30, dep: 4499.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'Sainty', spend: 2052.89, reg: 20, dep: 3200.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'Pepper', spend: 1760.28, reg: 9, dep: 2200.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'Jape', spend: 459.73, reg: 23, dep: 19100.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-01-30', site: 'RLM', streamer: 'Jape', spend: 160.65, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-
-  // --- JAN 31 ---
-  { date: '2026-01-31', site: 'WFL', streamer: 'HolyFather', spend: 4368.29, reg: 170, dep: 20239.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'HolyFather', spend: 2098.39, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/100084497334397/reels/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'Jason', spend: 1534.14, reg: 9, dep: 999.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'Jason', spend: 939.62, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'Neggy', spend: 1572.52, reg: 5, dep: 300.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'GhostWrecker', spend: 1470.71, reg: 14, dep: 2500.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'ATO', spend: 1246.05, reg: 2, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-01-31', site: 'WFL', streamer: 'Aether', spend: 0, reg: 0, dep: 500.00, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Yuji', spend: 1989.45, reg: 24, dep: 5300.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Jape', spend: 2901.18, reg: 43, dep: 13974.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Jape', spend: 1281.30, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'AJ', spend: 1126.31, reg: 17, dep: 2995.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'AJ', spend: 1256.70, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Sainty', spend: 266.49, reg: 5, dep: 300.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Pepper', spend: 212.62, reg: 9, dep: 1050.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-01-31', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 2500.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 1 ---
-  { date: '2026-02-01', site: 'WFL', streamer: 'HolyFather', spend: 3411.01, reg: 41, dep: 13984.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'Jason', spend: 1957.63, reg: 10, dep: 1100.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'Jason', spend: 498.33, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'Neggy', spend: 1911.97, reg: 9, dep: 550.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'ATO', spend: 1178.61, reg: 4, dep: 500.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'GhostWrecker', spend: 823.76, reg: 15, dep: 3009.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-01', site: 'WFL', streamer: 'Aether', spend: 0, reg: 0, dep: 650.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Sainty', spend: 2198.42, reg: 8, dep: 3602.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Jape', spend: 2982.60, reg: 27, dep: 9461.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Jape', spend: 997.45, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'AJ', spend: 1086.03, reg: 22, dep: 14314.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'AJ', spend: 959.16, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Pepper', spend: 940.63, reg: 13, dep: 1350.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Yuji', spend: 213.07, reg: 8, dep: 2250.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-02-01', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 400.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 2 ---
-  { date: '2026-02-02', site: 'WFL', streamer: 'Jason', spend: 3093.46, reg: 11, dep: 2600.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'Jason', spend: 950.23, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'HolyFather', spend: 2547.68, reg: 38, dep: 100093.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'Neggy', spend: 2849.19, reg: 17, dep: 2320.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'ATO', spend: 1643.14, reg: 5, dep: 500.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'Aether', spend: 803.94, reg: 2, dep: 1200.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'Aether', spend: 1390.89, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-02', site: 'WFL', streamer: 'GhostWrecker', spend: 0, reg: 9, dep: 3788.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'AJ', spend: 1814.39, reg: 36, dep: 5843.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'AJ', spend: 1144.61, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'Pepper', spend: 2022.29, reg: 8, dep: 5800.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'Sainty', spend: 1646.19, reg: 5, dep: 100.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'Jape', spend: 2311.13, reg: 25, dep: 25824.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'Yuji', spend: 255.78, reg: 4, dep: 700.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-02-02', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 1000.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 3 ---
-  { date: '2026-02-03', site: 'WFL', streamer: 'Jason', spend: 1995.44, reg: 9, dep: 1000.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'Jason', spend: 816.49, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'Neggy', spend: 2742.93, reg: 10, dep: 2900.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'Neggy', spend: 519.00, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'Aether', spend: 822.75, reg: 3, dep: 540.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'Aether', spend: 131.82, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'ATO', spend: 789.84, reg: 3, dep: 1400.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'HolyFather', spend: 290.94, reg: 12, dep: 57575.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-03', site: 'WFL', streamer: 'GhostWrecker', spend: 0, reg: 10, dep: 9350.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Pepper', spend: 2853.47, reg: 12, dep: 2795.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'AJ', spend: 1421.92, reg: 25, dep: 9600.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'AJ', spend: 1474.13, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Jape', spend: 1802.58, reg: 14, dep: 8320.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Sainty', spend: 386.05, reg: 5, dep: 600.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Yuji', spend: 208.62, reg: 2, dep: 200.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 1500.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 4 ---
-  { date: '2026-02-04', site: 'WFL', streamer: 'Jason', spend: 3569.10, reg: 13, dep: 3190.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'Jason', spend: 721.78, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'Neggy', spend: 3191.46, reg: 26, dep: 7116.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'Neggy', spend: 1101.20, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'Aether', spend: 1138.24, reg: 2, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'ATO', spend: 972.35, reg: 3, dep: 120.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 9, dep: 10317.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-04', site: 'WFL', streamer: 'GhostWrecker', spend: 0, reg: 10, dep: 1500.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Sainty', spend: 1920.31, reg: 6, dep: 5620.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'AJ', spend: 1107.40, reg: 13, dep: 9290.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'AJ', spend: 974.60, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Yuji', spend: 1032.72, reg: 12, dep: 850.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Jape', spend: 971.47, reg: 6, dep: 3495.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 1, dep: 500.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 5 ---
-  { date: '2026-02-05', site: 'WFL', streamer: 'Jason', spend: 3173.22, reg: 17, dep: 3100.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'Aether', spend: 207.19, reg: 1, dep: 600.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'Aether', spend: 1679.70, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'Neggy', spend: 1505.96, reg: 17, dep: 4487.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'Neggy', spend: 866.08, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'GhostWrecker', spend: 397.58, reg: 81, dep: 6700.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'AJ', spend: 423.93, reg: 0, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 12, dep: 4158.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-05', site: 'WFL', streamer: 'ATO', spend: 0, reg: 1, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Sainty', spend: 2658.06, reg: 5, dep: 3219.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'AJ', spend: 1129.54, reg: 19, dep: 15700.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'AJ', spend: 1251.29, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Yuji', spend: 910.98, reg: 2, dep: 800.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Jape', spend: 515.13, reg: 3, dep: 13173.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 1000.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 301.00, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-
-  // --- FEB 6 ---
-  { date: '2026-02-06', site: 'WFL', streamer: 'Jason', spend: 4003.60, reg: 11, dep: 7350.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'Jason', spend: 242.27, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'Aether', spend: 1702.18, reg: 0, dep: 250.00, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'GhostWrecker', spend: 967.29, reg: 58, dep: 10260.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'GhostWrecker', spend: 1.23, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/bosswrecker/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'Neggy', spend: 926.76, reg: 9, dep: 4811.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'Neggy', spend: 494.03, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'AJ', spend: 1088.86, reg: 0, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'AJ', spend: 330.64, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'ATO', spend: 217.68, reg: 2, dep: 300.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-06', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 9, dep: 4270.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Sainty', spend: 132.39, reg: 4, dep: 2103.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Sainty', spend: 2447.76, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'AJ', spend: 1834.52, reg: 31, dep: 6018.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'AJ', spend: 1386.80, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Yuji', spend: 990.01, reg: 4, dep: 1026.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Pepper', spend: 268.19, reg: 14, dep: 6750.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Jape', spend: 0, reg: 3, dep: 4192.00, type: 'Live', link: 'https://www.facebook.com/JapeAldeaOfficial/videos/' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-
-  // --- FEB 7 ---
-  { date: '2026-02-07', site: 'WFL', streamer: 'Jason', spend: 2911.98, reg: 9, dep: 11691.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'Jason', spend: 716.60, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'Aether', spend: 211.76, reg: 1, dep: 400.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'Aether', spend: 1721.97, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'GhostWrecker', spend: 1600.12, reg: 54, dep: 14683.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'GhostWrecker', spend: 553.44, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/bosswrecker/reels/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'AJ', spend: 722.39, reg: 0, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'AJ', spend: 873.72, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'Neggy', spend: 686.50, reg: 8, dep: 3800.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'ATO', spend: 434.85, reg: 3, dep: 100.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-07', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 3, dep: 2350.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Sainty', spend: 960.76, reg: 2, dep: 4040.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Sainty', spend: 1510.88, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'AJ', spend: 2827.42, reg: 19, dep: 12915.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'AJ', spend: 1070.93, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Pepper', spend: 278.42, reg: 7, dep: 647.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Jape', spend: 0, reg: 10, dep: 2502.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 1, dep: 800.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 8 ---
-  { date: '2026-02-08', site: 'WFL', streamer: 'GhostWrecker', spend: 12079.78, reg: 110, dep: 17955.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'GhostWrecker', spend: 642.84, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/bosswrecker/reels/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'Jason', spend: 2917.72, reg: 4, dep: 4300.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'Jason', spend: 874.41, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'Aether', spend: 783.46, reg: 1, dep: 600.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'Aether', spend: 1140.35, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'ATO', spend: 410.11, reg: 1, dep: 100.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 10, dep: 5168.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-08', site: 'WFL', streamer: 'Neggy', spend: 0, reg: 1, dep: 1400.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'AJ', spend: 2245.76, reg: 21, dep: 12271.00, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Sainty', spend: 1705.18, reg: 1, dep: 3434.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Sainty', spend: 344.72, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Jape', spend: 0, reg: 6, dep: 2586.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 1, dep: 2250.00, type: 'Reels', link: 'https://www.facebook.com/MageDadOfficial/reels/' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 2, dep: 1485.00, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-
-  // --- FEB 9 ---
-  { date: '2026-02-09', site: 'WFL', streamer: 'Jason', spend: 1782.21, reg: 3, dep: 1000.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'Jason', spend: 1192.79, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'GhostWrecker', spend: 1338.73, reg: 28, dep: 37010.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'Neggy', spend: 634.63, reg: 9, dep: 1500.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'Aether', spend: 620.35, reg: 0, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'Aether', spend: 484.47, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'ATO', spend: 470.53, reg: 0, dep: 300.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-09', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 4, dep: 4550.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Sainty', spend: 915.61, reg: 2, dep: 2921.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'AJ', spend: 5.98, reg: 3, dep: 9267.00, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Jape', spend: 0, reg: 7, dep: 4965.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 1, dep: 497.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 600.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-
-  // --- FEB 10 ---
-  { date: '2026-02-10', site: 'WFL', streamer: 'GhostWrecker', spend: 1324.17, reg: 3, dep: 2891.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'Jason', spend: 1420.07, reg: 2, dep: 4620.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'Jason', spend: 525.39, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'Neggy', spend: 350.47, reg: 10, dep: 2214.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'Aether', spend: 254.58, reg: 0, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'Aether', spend: 332.82, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'ATO', spend: 244.79, reg: 0, dep: 0.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 5, dep: 8941.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'AJ', spend: 5.98, reg: 11, dep: 13185.00, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'Jape', spend: 0, reg: 2, dep: 7279.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 2580.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'Sainty', spend: 0, reg: 0, dep: 1000.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-
-  // --- FEB 11 ---
-  { date: '2026-02-11', site: 'WFL', streamer: 'GhostWrecker', spend: 2498.48, reg: 2, dep: 4200.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Jason', spend: 3355.90, reg: 6, dep: 700.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Jason', spend: 1139.94, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Neggy', spend: 1068.21, reg: 26, dep: 3200.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Neggy', spend: 539.23, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Aether', spend: 811.16, reg: 1, dep: 0.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'Aether', spend: 559.34, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'ATO', spend: 516.67, reg: 1, dep: 100.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 2, dep: 6779.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'AJ', spend: 1364.58, reg: 33, dep: 12834.00, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Sainty', spend: 594.32, reg: 1, dep: 6960.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Jape', spend: 0, reg: 1, dep: 2324.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 8, dep: 1270.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 0, dep: 300.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 12 ---
-  { date: '2026-02-12', site: 'WFL', streamer: 'Jason', spend: 2478.22, reg: 5, dep: 2620.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'Jason', spend: 764.11, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'GhostWrecker', spend: 1607.93, reg: 0, dep: 10000.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'Neggy', spend: 1809.38, reg: 23, dep: 4800.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'Neggy', spend: 1013.33, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'ATO', spend: 507.95, reg: 1, dep: 200.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'Aether', spend: 324.47, reg: 1, dep: 400.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'Aether', spend: 14.57, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/TeamAetherEsports/reels/' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 5, dep: 6525.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'AJ', spend: 2551.73, reg: 35, dep: 10970.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'AJ', spend: 1919.06, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Sainty', spend: 1088.08, reg: 1, dep: 2931.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Jape', spend: 12.61, reg: 3, dep: 2606.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 2, dep: 2100.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 500.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 13 ---
-  { date: '2026-02-13', site: 'WFL', streamer: 'Jason', spend: 1612.91, reg: 1, dep: 1900.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'Jason', spend: 626.03, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'Neggy', spend: 1208.53, reg: 19, dep: 2100.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'Neggy', spend: 911.54, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'ATO', spend: 194.23, reg: 0, dep: 0.00, type: 'Reels', link: 'https://www.facebook.com/AtoClassSWorldwide/reels/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 6, dep: 6914.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'GhostWrecker', spend: 0, reg: 3, dep: 4730.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Sainty', spend: 3576.08, reg: 11, dep: 7696.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Sainty', spend: 818.71, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'AJ', spend: 3256.63, reg: 30, dep: 14659.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'AJ', spend: 2355.94, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Jape', spend: 958.72, reg: 6, dep: 8543.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 3900.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 14 ---
-  { date: '2026-02-14', site: 'WFL', streamer: 'Jason', spend: 3297.29, reg: 1, dep: 470.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'Jason', spend: 1166.88, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'Neggy', spend: 1708.60, reg: 36, dep: 1600.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'Neggy', spend: 500.54, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/NeggyTvOfficial/reels/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'GhostWrecker', spend: 543.51, reg: 27, dep: 8650.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 2, dep: 1750.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-14', site: 'WFL', streamer: 'ATO', spend: 0, reg: 1, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Sainty', spend: 6648.36, reg: 34, dep: 14594.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'AJ', spend: 1516.77, reg: 16, dep: 18407.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Jape', spend: 1102.45, reg: 7, dep: 6259.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 1, dep: 10280.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Kim', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 0, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 15 ---
-  { date: '2026-02-15', site: 'WFL', streamer: 'GhostWrecker', spend: 1277.94, reg: 41, dep: 5761.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-15', site: 'WFL', streamer: 'Neggy', spend: 917.13, reg: 27, dep: 1600.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-15', site: 'WFL', streamer: 'Jason', spend: 957.48, reg: 0, dep: 3100.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-15', site: 'WFL', streamer: 'Jason', spend: 440.35, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-15', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 5, dep: 2205.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-15', site: 'WFL', streamer: 'Aether', spend: 0, reg: 1, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Sainty', spend: 6666.49, reg: 28, dep: 9360.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Yuji', spend: 1250.07, reg: 6, dep: 950.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Jape', spend: 1039.58, reg: 8, dep: 1807.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'AJ', spend: 0, reg: 5, dep: 9490.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 785.00, type: 'Live', link: 'https://www.facebook.com/AkoSiPepVT/videos/' },
-
-  // --- FEB 16 ---
-  { date: '2026-02-16', site: 'WFL', streamer: 'GhostWrecker', spend: 3477.99, reg: 42, dep: 16800.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-16', site: 'WFL', streamer: 'Neggy', spend: 1580.40, reg: 52, dep: 2286.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-16', site: 'WFL', streamer: 'Jason', spend: 1524.35, reg: 3, dep: 3800.00, type: 'Live', link: 'https://www.facebook.com/itsmeJ4soon/videos/' },
-  { date: '2026-02-16', site: 'WFL', streamer: 'Jason', spend: 872.62, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-16', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 2, dep: 3900.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-16', site: 'WFL', streamer: 'Aether', spend: 0, reg: 0, dep: 200.00, type: 'Live', link: 'https://www.facebook.com/TeamAetherEsports/videos/' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'AJ', spend: 801.38, reg: 14, dep: 17283.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'AJ', spend: 255.23, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'Jape', spend: 1397.77, reg: 6, dep: 1950.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'Sainty', spend: 643.63, reg: 2, dep: 3666.00, type: 'Reels', link: 'https://www.facebook.com/reels/' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'Yuji', spend: 642.79, reg: 2, dep: 800.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- FEB 17 ---
-  { date: '2026-02-17', site: 'WFL', streamer: 'GhostWrecker', spend: 2689.29, reg: 37, dep: 11210.00, type: 'Live', link: 'https://www.facebook.com/bosswrecker/videos/' },
-  { date: '2026-02-17', site: 'WFL', streamer: 'Neggy', spend: 1911.41, reg: 64, dep: 6460.00, type: 'Live', link: 'https://www.facebook.com/NeggyTvOfficial/videos/' },
-  { date: '2026-02-17', site: 'WFL', streamer: 'HolyFather', spend: 1033.64, reg: 15, dep: 3060.00, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-18', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 156, dep: 75979, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-19', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 128, dep: 103022, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-20', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 113, dep: 46856, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-21', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 63, dep: 59919, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-22', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 138, dep: 54208, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-23', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 68, dep: 84046, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-24', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 324, dep: 114190, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-25', site: 'WFL', streamer: 'HolyFather', spend: 0, reg: 101, dep: 26839, type: 'Live', link: 'https://www.facebook.com/100084497334397/videos/' },
-  { date: '2026-02-17', site: 'WFL', streamer: 'Jason', spend: 286.09, reg: 0, dep: 1200.00, type: 'Reels', link: 'https://www.facebook.com/itsmeJ4soon/reels/' },
-  { date: '2026-02-17', site: 'WFL', streamer: 'ATO', spend: 0, reg: 1, dep: 100.00, type: 'Live', link: 'https://www.facebook.com/AtoClassSWorldwide/videos/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'AJ', spend: 1110.34, reg: 17, dep: 9120.00, type: 'Live', link: 'https://www.facebook.com/AprilJoyBarrueso/videos/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'AJ', spend: 1166.56, reg: 0, dep: 0, type: 'Reels', link: 'https://www.facebook.com/AprilJoyBarrueso/reels/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Jape', spend: 830.70, reg: 4, dep: 13698.00, type: 'Reels', link: 'https://www.facebook.com/JapeAldeaOfficial/reels/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Sainty', spend: 0, reg: 1, dep: 4460.00, type: 'Live', link: 'https://www.facebook.com/videos/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Pepper', spend: 0, reg: 0, dep: 857.00, type: 'Reels', link: 'https://www.facebook.com/AkoSiPepVT/reels/' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Yuji', spend: 0, reg: 0, dep: 150.00, type: 'Live', link: 'https://www.facebook.com/MageDadOfficial/videos/' },
-
-  // --- CHAD ---
-  { date: '2026-02-02', site: 'RLM', streamer: 'Chad', spend: 0, reg: 13, dep: 126660, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Chad', spend: 0, reg: 19, dep: 181457, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Chad', spend: 0, reg: 5, dep: 53930, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Chad', spend: 0, reg: 6, dep: 91641, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Chad', spend: 0, reg: 7, dep: 66680, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Chad', spend: 0, reg: 10, dep: 109046, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Chad', spend: 0, reg: 9, dep: 107703, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Chad', spend: 0, reg: 11, dep: 29629, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'Chad', spend: 0, reg: 3, dep: 136931, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Chad', spend: 0, reg: 12, dep: 58650, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Chad', spend: 0, reg: 4, dep: 17983, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Chad', spend: 0, reg: 5, dep: 25003, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Chad', spend: 0, reg: 2, dep: 30801, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Chad', spend: 0, reg: 1, dep: 7582, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'Chad', spend: 0, reg: 24, dep: 5282, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Chad', spend: 0, reg: 4, dep: 9250, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'RLM', streamer: 'Chad', spend: 0, reg: 7, dep: 17335, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'RLM', streamer: 'Chad', spend: 0, reg: 19, dep: 13922, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'RLM', streamer: 'Chad', spend: 0, reg: 6, dep: 20543, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'RLM', streamer: 'Chad', spend: 0, reg: 6, dep: 19671, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'RLM', streamer: 'Chad', spend: 0, reg: 4, dep: 15811, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'RLM', streamer: 'Chad', spend: 0, reg: 7, dep: 11575, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'RLM', streamer: 'Chad', spend: 0, reg: 9, dep: 12946, type: 'Live', link: '' },
-
-  // --- T2B STREAMERS ---
-  // Dogie / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 1420, dep: 2109490, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 2002, dep: 2413443, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 2059, dep: 2553947, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 1681, dep: 2029034, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 1109, dep: 2200722, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 916, dep: 2006314, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 1837, dep: 1887784, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 901, dep: 2276827, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 656, dep: 1946819, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 766, dep: 1819590, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 729, dep: 1999877, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 843, dep: 1963838, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 738, dep: 1771982, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 710, dep: 1980180, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 508, dep: 1835063, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 845, dep: 1532923, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 823, dep: 1578565, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 789, dep: 1830499, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 1028, dep: 1825567, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 715, dep: 1928158, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 651, dep: 1673720, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 622, dep: 1692087, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Dogie', spend: 0, reg: 553, dep: 1343763, type: 'Live', link: '' },
-  // Renejay / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 4, dep: 84422, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 3, dep: 45811, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 9, dep: 41490, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 0, dep: 49748, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 439, dep: 64444, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 569, dep: 121526, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 284, dep: 85866, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 228, dep: 65230, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 1120, dep: 199758, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 648, dep: 262715, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 461, dep: 282354, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 348, dep: 270160, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 419, dep: 211797, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 681, dep: 348136, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 671, dep: 395735, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 513, dep: 440188, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 551, dep: 418698, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 444, dep: 401624, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 409, dep: 317220, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 288, dep: 298831, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 199, dep: 282997, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 220, dep: 267400, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Renejay', spend: 0, reg: 211, dep: 298220, type: 'Live', link: '' },
-  // H2wo / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 524, dep: 152339, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 459, dep: 315916, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 295, dep: 246274, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 375, dep: 230540, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 167, dep: 260601, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 89, dep: 168016, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 233, dep: 238278, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 152, dep: 183873, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 139, dep: 152746, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 100, dep: 133605, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 339, dep: 195826, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 187, dep: 205681, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 119, dep: 183822, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 237, dep: 232444, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 294, dep: 240216, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 496, dep: 208424, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 257, dep: 203028, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 200, dep: 180591, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 210, dep: 241459, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 639, dep: 247740, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 319, dep: 196667, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 458, dep: 273695, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'H2wo', spend: 0, reg: 477, dep: 212019, type: 'Live', link: '' },
-  // Yawi / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 208, dep: 110523, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 109, dep: 110444, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 111, dep: 98599, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 200, dep: 125840, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 214, dep: 182908, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 256, dep: 171529, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 173, dep: 209711, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 74, dep: 139874, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 100, dep: 116358, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 88, dep: 90968, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 277, dep: 106435, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 88, dep: 126199, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 145, dep: 167128, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 260, dep: 199787, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 124, dep: 153362, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 103, dep: 94884, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 267, dep: 120259, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 108, dep: 147034, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 355, dep: 172421, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 252, dep: 156323, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 96, dep: 307467, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 259, dep: 151913, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Yawi', spend: 0, reg: 143, dep: 153270, type: 'Live', link: '' },
-  // Zico / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Zico', spend: 0, reg: 44, dep: 3915, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Zico', spend: 0, reg: 141, dep: 5583, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Zico', spend: 0, reg: 99, dep: 5808, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Zico', spend: 0, reg: 51, dep: 26755, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Zico', spend: 0, reg: 42, dep: 6065, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Zico', spend: 0, reg: 4, dep: 2470, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Zico', spend: 0, reg: 4, dep: 3761, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Zico', spend: 0, reg: 0, dep: 9335, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Zico', spend: 0, reg: 7, dep: 2341, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Zico', spend: 0, reg: 8, dep: 1649, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Zico', spend: 0, reg: 2, dep: 3680, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Zico', spend: 0, reg: 43, dep: 2490, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Zico', spend: 0, reg: 4, dep: 5229, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Zico', spend: 0, reg: 6, dep: 8205, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Zico', spend: 0, reg: 25, dep: 56034, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Zico', spend: 0, reg: 4, dep: 20403, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Zico', spend: 0, reg: 6, dep: 3790, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Zico', spend: 0, reg: 8, dep: 2520, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Zico', spend: 0, reg: 8, dep: 2292, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Zico', spend: 0, reg: 3, dep: 4040, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Zico', spend: 0, reg: 0, dep: 2500, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Zico', spend: 0, reg: 19, dep: 10675, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Zico', spend: 0, reg: 3, dep: 10820, type: 'Live', link: '' },
-  // Jape / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Jape', spend: 0, reg: 122, dep: 32430, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Jape', spend: 0, reg: 116, dep: 22407, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Jape', spend: 0, reg: 27, dep: 27883, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Jape', spend: 0, reg: 26, dep: 29748, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Jape', spend: 0, reg: 19, dep: 35977, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Jape', spend: 0, reg: 19, dep: 42789, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Jape', spend: 0, reg: 7, dep: 20756, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Jape', spend: 0, reg: 8, dep: 13015, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Jape', spend: 0, reg: 28, dep: 20660, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Jape', spend: 0, reg: 24, dep: 44349, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Jape', spend: 0, reg: 16, dep: 12876, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Jape', spend: 0, reg: 31, dep: 34433, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Jape', spend: 0, reg: 24, dep: 32210, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Jape', spend: 0, reg: 23, dep: 32530, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Jape', spend: 0, reg: 12, dep: 39040, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Jape', spend: 0, reg: 20, dep: 31205, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Jape', spend: 0, reg: 19, dep: 25831, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Jape', spend: 0, reg: 16, dep: 100214, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Jape', spend: 0, reg: 46, dep: 121665, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Jape', spend: 0, reg: 108, dep: 59384, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Jape', spend: 0, reg: 36, dep: 18191, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Jape', spend: 0, reg: 25, dep: 16451, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Jape', spend: 0, reg: 18, dep: 33692, type: 'Live', link: '' },
-  // Ribo / T2B
-  { date: '2026-02-03', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 5, dep: 245, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 30, dep: 4660, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 11, dep: 1000, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 79, dep: 7478, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 47, dep: 4850, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 23, dep: 5444, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 44, dep: 7639, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 43, dep: 26680, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 31, dep: 8373, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 19, dep: 11204, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 19, dep: 7850, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 21, dep: 7201, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 21, dep: 4696, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 19, dep: 5085, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 34, dep: 7450, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 19, dep: 5100, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 16, dep: 4068, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 8, dep: 3500, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 20, dep: 6039, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 17, dep: 3218, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 48, dep: 5285, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Ribo', spend: 0, reg: 22, dep: 3441, type: 'Live', link: '' },
-  // Krilla / T2B
-  { date: '2026-02-23', site: 'T2B', streamer: 'Krilla', spend: 0, reg: 2, dep: 500, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Krilla', spend: 0, reg: 3, dep: 600, type: 'Live', link: '' },
-  // Yuji / T2B
-  { date: '2026-02-02', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 3, dep: 0, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 7, dep: 0, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 23, dep: 0, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 2, dep: 0, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 38, dep: 0, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 24, dep: 9050, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 9, dep: 11000, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 6, dep: 2680, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 6, dep: 700, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 19, dep: 1450, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 17, dep: 7643, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 7, dep: 9855, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 18, dep: 7950, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 9, dep: 1901, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 32, dep: 1790, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 27, dep: 4950, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 36, dep: 8986, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 8, dep: 7950, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 16, dep: 4759, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 13, dep: 2530, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 10, dep: 2648, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 6, dep: 3204, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Yuji', spend: 0, reg: 3, dep: 600, type: 'Live', link: '' },
-  // Wrecker / T2B
-  { date: '2026-02-09', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 40, dep: 4195, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 51, dep: 16004, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 29, dep: 15303, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 18, dep: 39952, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 16, dep: 10267, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 4, dep: 6199, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 2, dep: 5820, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 0, dep: 1300, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 1, dep: 1600, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 51, dep: 5790, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 31, dep: 7911, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 7, dep: 6550, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 230, dep: 5827, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 19, dep: 7278, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 145, dep: 10654, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Wrecker', spend: 0, reg: 15, dep: 7518, type: 'Live', link: '' },
-  // Trixie / T2B
-  { date: '2026-02-21', site: 'T2B', streamer: 'Trixie', spend: 0, reg: 9, dep: 700, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'T2B', streamer: 'Trixie', spend: 0, reg: 54, dep: 7747, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'T2B', streamer: 'Trixie', spend: 0, reg: 55, dep: 5203, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'T2B', streamer: 'Trixie', spend: 0, reg: 15, dep: 7518, type: 'Live', link: '' },
-
-  // ChadKinis / RLM
-  { date: '2026-02-02', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 376, dep: 418449, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 408, dep: 500215, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 277, dep: 436670, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 105, dep: 393655, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 222, dep: 310893, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 210, dep: 345418, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 108, dep: 296569, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 266, dep: 257787, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 46, dep: 380984, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 1351, dep: 221121, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 199, dep: 252491, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 266, dep: 194787, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 30, dep: 301675, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 23, dep: 292559, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 544, dep: 243357, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 222, dep: 237821, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 319, dep: 199465, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 206, dep: 279008, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 110, dep: 233861, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 40, dep: 271606, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 285, dep: 145278, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 228, dep: 257691, type: 'Live', link: '' },
-  { date: '2026-02-24', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 304, dep: 221576, type: 'Live', link: '' },
-  { date: '2026-02-25', site: 'RLM', streamer: 'ChadKinis', spend: 0, reg: 167, dep: 175338, type: 'Live', link: '' },
-  // Affiliate / RLM
-  { date: '2026-02-02', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 3280, type: 'Live', link: '' },
-  { date: '2026-02-03', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 5, dep: 3299, type: 'Live', link: '' },
-  { date: '2026-02-04', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 2645, type: 'Live', link: '' },
-  { date: '2026-02-05', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 570, type: 'Live', link: '' },
-  { date: '2026-02-06', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 2, dep: 2487, type: 'Live', link: '' },
-  { date: '2026-02-07', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 4, dep: 71400, type: 'Live', link: '' },
-  { date: '2026-02-08', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 4, dep: 3350, type: 'Live', link: '' },
-  { date: '2026-02-09', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 1954, type: 'Live', link: '' },
-  { date: '2026-02-10', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 5, dep: 1391, type: 'Live', link: '' },
-  { date: '2026-02-11', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 3, dep: 5250, type: 'Live', link: '' },
-  { date: '2026-02-12', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 4000, type: 'Live', link: '' },
-  { date: '2026-02-13', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 1800, type: 'Live', link: '' },
-  { date: '2026-02-14', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 5, dep: 1263, type: 'Live', link: '' },
-  { date: '2026-02-15', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 0, dep: 3080, type: 'Live', link: '' },
-  { date: '2026-02-16', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 2, dep: 1400, type: 'Live', link: '' },
-  { date: '2026-02-17', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 3, dep: 1100, type: 'Live', link: '' },
-  { date: '2026-02-18', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 2, dep: 3600, type: 'Live', link: '' },
-  { date: '2026-02-19', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 2, dep: 103900, type: 'Live', link: '' },
-  { date: '2026-02-20', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 3149, type: 'Live', link: '' },
-  { date: '2026-02-21', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 3, dep: 5001, type: 'Live', link: '' },
-  { date: '2026-02-22', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 1, dep: 2550, type: 'Live', link: '' },
-  { date: '2026-02-23', site: 'RLM', streamer: 'Affiliate', spend: 0, reg: 3, dep: 103300, type: 'Live', link: '' },
-
-  // --- GENERAL/BOOSTING ---
-  { date: '2026-02-09', site: 'WFL', streamer: 'General', spend: 631.49, reg: 0, dep: 0, type: 'General', link: '' },
-  { date: '2026-02-10', site: 'WFL', streamer: 'General', spend: 3849.97, reg: 0, dep: 0, type: 'General', link: '' },
-  { date: '2026-02-11', site: 'WFL', streamer: 'General', spend: 282.45, reg: 0, dep: 0, type: 'General', link: '' },
-  { date: '2026-02-12', site: 'WFL', streamer: 'General', spend: 845.82, reg: 0, dep: 0, type: 'General', link: '' },
-  { date: '2026-02-13', site: 'WFL', streamer: 'General', spend: 808.27, reg: 0, dep: 0, type: 'General', link: '' },
+  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/watch/live/?ref=watch_permalink&v=885683144393946"},
+  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/watch/live/?ref=watch_permalink&v=1230456252366739&rdid=PcAgDQaB6eOavtlR"},
+  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1222680836504331/?rdid=pEQm12JfQxwZiGmK#"},
+  {"date":"2026-01-23","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2024003294810360"},
+  {"date":"2026-01-24","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1211344391104087"},
+  {"date":"2026-01-24","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/865761549646384"},
+  {"date":"2026-01-24","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1441004237542434"},
+  {"date":"2026-01-25","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/883670777385663"},
+  {"date":"2026-01-25","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1212566064332187"},
+  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/4171745289806749"},
+  {"date":"2026-01-26","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DEdoCao4m/"},
+  {"date":"2026-01-26","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1609190960365176"},
+  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/3451812401636580"},
+  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/745052444909829"},
+  {"date":"2026-01-26","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1802538730407024"},
+  {"date":"2026-01-26","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2078904466207308"},
+  {"date":"2026-01-27","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1219664546299780"},
+  {"date":"2026-01-27","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1400238677786680"},
+  {"date":"2026-01-27","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1425117232563464"},
+  {"date":"2026-01-27","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/4392172377683040"},
+  {"date":"2026-01-27","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1417740453129754"},
+  {"date":"2026-01-28","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/771092899357472"},
+  {"date":"2026-01-28","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1225303756228268"},
+  {"date":"2026-01-28","site":"WFL","streamer":"WoolFyBets","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1194027289558201"},
+  {"date":"2026-01-28","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1703181710645180"},
+  {"date":"2026-01-28","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/736212492579761"},
+  {"date":"2026-01-29","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1413162906941210"},
+  {"date":"2026-01-29","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/3294398284067818"},
+  {"date":"2026-01-29","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1377157194447705"},
+  {"date":"2026-01-29","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/910286828186637"},
+  {"date":"2026-01-30","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AtoClassSWorldwide/videos/2107283950029419"},
+  {"date":"2026-01-30","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/922726767372793"},
+  {"date":"2026-01-30","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/2086982632036110"},
+  {"date":"2026-01-31","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/888757614052533"},
+  {"date":"2026-01-31","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1505662780497529"},
+  {"date":"2026-02-01","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1258035249540221"},
+  {"date":"2026-02-01","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1482004456832877"},
+  {"date":"2026-02-01","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/857112140650785"},
+  {"date":"2026-02-01","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AtoClassSWorldwide/videos/1471895327613814"},
+  {"date":"2026-02-01","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1227233478814729"},
+  {"date":"2026-02-02","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1468143128649664"},
+  {"date":"2026-02-02","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/2539091036487165"},
+  {"date":"2026-02-03","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/25551401257836303"},
+  {"date":"2026-02-03","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2138138830280360"},
+  {"date":"2026-02-03","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2126375441532235"},
+  {"date":"2026-02-03","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3880295828769349"},
+  {"date":"2026-02-05","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/946763107678686"},
+  {"date":"2026-02-05","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1204921241628901"},
+  {"date":"2026-02-05","site":"WFL","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1HBeTE2hQY/?mibextid=wwXIfr"},
+  {"date":"2026-02-05","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/933610792682774"},
+  {"date":"2026-02-05","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100064343610389/videos/1590735218912899"},
+  {"date":"2026-02-06","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1977286146503441"},
+  {"date":"2026-02-06","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2413183732437811"},
+  {"date":"2026-02-06","site":"WFL","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1BGKpevMck/?mibextid=wwXIfr"},
+  {"date":"2026-02-07","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/2123963611475339"},
+  {"date":"2026-02-07","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1635276764148610"},
+  {"date":"2026-02-07","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1989255735306528"},
+  {"date":"2026-02-07","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/2050025072453651"},
+  {"date":"2026-02-08","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/937831962018202"},
+  {"date":"2026-02-08","site":"WFL","streamer":"Wrecker","spend":10000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1206776438268781"},
+  {"date":"2026-02-09","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1457249989083330/"},
+  {"date":"2026-02-09","site":"WFL","streamer":"Wrecker","spend":10000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61571307990071/videos/933228102375994"},
+  {"date":"2026-02-10","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/903855852253730"},
+  {"date":"2026-02-11","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/750412531124301"},
+  {"date":"2026-02-12","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1998982444327708"},
+  {"date":"2026-02-12","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1429035578823633"},
+  {"date":"2026-02-13","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1589967252206600/"},
+  {"date":"2026-02-13","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/907038708540027"},
+  {"date":"2026-02-14","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1132890362176294/"},
+  {"date":"2026-02-15","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/890227746946813"},
+  {"date":"2026-02-15","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/2049746839286698"},
+  {"date":"2026-02-16","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/766124036116835/"},
+  {"date":"2026-02-16","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/25851082161208841"},
+  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1847515289984612"},
+  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1330995745434333"},
+  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1493202355759004"},
+  {"date":"2026-02-17","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1573657753854289"},
+  {"date":"2026-02-17","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1609581016712190"},
+  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/2284671212054231"},
+  {"date":"2026-02-19","site":"WFL","streamer":"Jason","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2053062885269958"},
+  {"date":"2026-02-19","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/842299848816687"},
+  {"date":"2026-02-19","site":"WFL","streamer":"HolyFather","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/896441093189490"},
+  {"date":"2026-02-19","site":"WFL","streamer":"WoolFyBets","spend":6000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1441190814221807"},
+  {"date":"2026-02-19","site":"WFL","streamer":"Neggy","spend":5000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/25969226452749054/"},
+  {"date":"2026-02-19","site":"WFL","streamer":"Wrecker","spend":35000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1637630127255481"},
+  {"date":"2026-02-20","site":"WFL","streamer":"HolyFather","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/940907548408173/"},
+  {"date":"2026-02-20","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1748049056170928"},
+  {"date":"2026-02-20","site":"WFL","streamer":"WoolFyBets","spend":4000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/905983858816095"},
+  {"date":"2026-02-20","site":"WFL","streamer":"Neggy","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1335162685040587/"},
+  {"date":"2026-02-21","site":"WFL","streamer":"WoolFyBets","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1469894714791070"},
+  {"date":"2026-02-22","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1084042223886702"},
+  {"date":"2026-02-22","site":"WFL","streamer":"HolyFather","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/3614493192027161"},
+  {"date":"2026-02-22","site":"WFL","streamer":"Wrecker","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61571307990071/videos/2902481506623071"},
+  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1174627438196210"},
+  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1331888308695207"},
+  {"date":"2026-01-23","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AprilJoyBarrueso/videos/719770387658466/?rdid=dkxVEvLqxvo9BAxp##"},
+  {"date":"2026-01-23","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/MageDadOfficial/videos/2083950799106728/?mibextid=wwXIfr&rdid=yzlq6DNNHIVcBTbe"},
+  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/2286907945120179"},
+  {"date":"2026-01-24","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/14b5g3dSrZp/"},
+  {"date":"2026-01-25","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1B1NfQncE7/?mibextid=wwXIfr"},
+  {"date":"2026-01-25","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/181MuhvgaQ/"},
+  {"date":"2026-01-25","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2631426843894671"},
+  {"date":"2026-01-25","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1G819NgCL8/"},
+  {"date":"2026-01-25","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/849424834749801"},
+  {"date":"2026-01-25","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DZBS1M6HW/?mibextid=wwXIfr"},
+  {"date":"2026-01-26","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1985142072031770"},
+  {"date":"2026-01-26","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1BgHY3ufLH/"},
+  {"date":"2026-01-26","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Ae3nknz7f/?mibextid=wwXIfr"},
+  {"date":"2026-01-27","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/18NMwBW7as/?mibextid=wwXIfr"},
+  {"date":"2026-01-27","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/16eWLnWbS9/?mibextid=wwXIfr"},
+  {"date":"2026-01-28","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1219902220267808/?s=single_unit"},
+  {"date":"2026-01-28","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/883219898005132"},
+  {"date":"2026-01-28","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3355479341301592"},
+  {"date":"2026-01-28","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/MageDadOfficial/videos/1309297821004636"},
+  {"date":"2026-01-28","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/2435182743581156"},
+  {"date":"2026-01-28","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1KpAp2yk28/"},
+  {"date":"2026-01-29","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/3818862108406986/"},
+  {"date":"2026-01-30","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/4264556677204932"},
+  {"date":"2026-01-30","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1596936341506127"},
+  {"date":"2026-01-30","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/25529976833349181"},
+  {"date":"2026-01-31","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1EyVup21nd/?mibextid=wwXIfr"},
+  {"date":"2026-01-31","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/1216979156758075"},
+  {"date":"2026-01-31","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Wve324hmi/?mibextid=wwXIfr"},
+  {"date":"2026-01-31","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1GfwVZsgVx/?mibextid=wwXIfr"},
+  {"date":"2026-02-01","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/25710982311919077"},
+  {"date":"2026-02-01","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1BjGUW9HSd/?mibextid=wwXIfr"},
+  {"date":"2026-02-01","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Ja9JeWepW/"},
+  {"date":"2026-02-01","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/763022573520001"},
+  {"date":"2026-02-01","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1KGxFdAYwT/?mibextid=wwXIfrr"},
+  {"date":"2026-02-01","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/17E4XkVEN6/?mibextid=wwXIfr"},
+  {"date":"2026-02-02","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/884310657906295"},
+  {"date":"2026-02-02","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1C5oLXwfsi/?mibextid=wwXIfr"},
+  {"date":"2026-02-02","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/189cipCUfz/"},
+  {"date":"2026-02-02","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"ttps://www.facebook.com/AkoSiPepVT/videos/1409000614250077"},
+  {"date":"2026-02-03","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3756562284637621"},
+  {"date":"2026-02-03","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1866GhecK5/"},
+  {"date":"2026-02-03","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1BXRYRy7kD/?mibextid=wwXIfr"},
+  {"date":"2026-02-03","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/16sfEV4t6v/?mibextid=wwXIfrSainty"},
+  {"date":"2026-02-03","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/189R4q95p6/?mibextid=wwXIfr"},
+  {"date":"2026-02-05","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DcA6jRvQS/?mibextid=wwXIfr"},
+  {"date":"2026-02-05","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/185VujxSna/"},
+  {"date":"2026-02-05","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"ttps://www.facebook.com/share/r/1G5LdDUHkS/?mibextid=wwXIfr"},
+  {"date":"2026-02-05","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1GNEySVXoM/?mibextid=wwXIfr"},
+  {"date":"2026-02-06","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1KL6QtBwsJ/"},
+  {"date":"2026-02-06","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1646503923447556"},
+  {"date":"2026-02-06","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1AQQW6XH9Z/?mibextid=wwXIfr"},
+  {"date":"2026-02-07","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/19484132694003188"},
+  {"date":"2026-02-08","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1AtyRcTcFX/?mibextid=wwXIfr"},
+  {"date":"2026-02-10","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Dmxta7BNq/?mibextid=wwXIfr"},
+  {"date":"2026-02-10","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/16HzeHjkiu/?mibextid=wwXIfr"},
+  {"date":"2026-02-11","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3023241701218899"},
+  {"date":"2026-02-11","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Gdkackrre/?mibextid=wwXIfr"},
+  {"date":"2026-02-12","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/17mTtxHZqA/"},
+  {"date":"2026-02-12","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1AatUqjnA9/?mibextid=wwXIfr"},
+  {"date":"2026-02-12","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1SJdyXwFTk/?mibextid=wwXIfr"},
+  {"date":"2026-02-12","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61575739010148/videos/908858785185458"},
+  {"date":"2026-02-13","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/14UFQ23H38e/?mibextid=wwXIfr"},
+  {"date":"2026-02-13","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/17xY2ajMy3/"},
+  {"date":"2026-02-14","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/r/1bKKbsnjzD/?mibextid=wwXIfr"},
+  {"date":"2026-02-15","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1KCkHTy2w9/?mibextid=wwXIfr"},
+  {"date":"2026-02-16","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1CCb57zdFq/"},
+  {"date":"2026-02-16","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Fu2Aab9dy/?mibextid=wwXIfr"},
+  {"date":"2026-02-19","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1FQNn8TtaV/?mibextid=wwXIfr"},
+  {"date":"2026-02-19","site":"RLM","streamer":"Pepper","spend":9000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/1214152930875048"},
+  {"date":"2026-02-19","site":"RLM","streamer":"Sainty","spend":4000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1c9eFsuCQQ/?mibextid=wwXIfr"},
+  {"date":"2026-02-20","site":"RLM","streamer":"AJ","spend":18000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Dz8A6Vmx4/"},
+  {"date":"2026-02-20","site":"RLM","streamer":"AJ","spend":12000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1A7SfntoYA/?mibextid=wwXIfr"},
+  {"date":"2026-02-21","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/188cpCWQWn/?mibextid=wwXIf"},
+  {"date":"2026-02-21","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1ESdCyFXCX/?mibextid=wwXIfr"},
+  {"date":"2026-02-22","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1Evmg9Rxvt/?mibextid=wwXIfr"},
+  {"date":"2026-02-23","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/14TDMLqg18j/"},
+  {"date":"2026-02-24","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/764763246691386"},
+  {"date":"2026-02-24","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/25990248340642557"},
+  {"date":"2026-02-24","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/16PEbZEbVw/?mibextid=wwXIfr"},
+  {"date":"2026-02-25","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/18KghvAV8L/"},
+  {"date":"2026-02-25","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1CE21gSx8S/"},
+  {"date":"2026-02-26","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1B3SJJ27so/"},
+  {"date":"2026-02-26","site":"RLM","streamer":"Jape","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://web.facebook.com/share/v/1WqydA43VH/?mibextid=87OH41"}
 ];
+
+// ─── BUILT-IN STREAMER ALIAS DICTIONARY ───────────────────────────────────
+// Maps normalised CSV header/section names → canonical streamer display names.
+// Works even when the app has zero existing data (no dependency on stored entries).
+const STREAMER_ALIASES = {
+  // ── WFL ──
+  holyfather: 'HolyFather',          holyfatherreels: 'HolyFather',
+  holyfatherpage: 'HolyFather',      holyfatherlive: 'HolyFather',
+  jasoon: 'Jason',                   jasonreels: 'Jason',
+  jason: 'Jason',                    itsj4soon: 'Jason',
+  itsmeJ4soon: 'Jason',
+  neggytv: 'Neggy',                  neggy: 'Neggy',
+  neggytvofficial: 'Neggy',          neggyreels: 'Neggy',
+  aether: 'WoolFyBets',              woolfybets: 'WoolFyBets',
+  woolfybetsad: 'WoolFyBets',            woolfybetsreels: 'WoolFyBets',
+  teamaether: 'WoolFyBets',              teamaetherreels: 'WoolFyBets',
+  ghostwrecker: 'Wrecker',      bosswrecker: 'Wrecker',
+  wrecker: 'Wrecker',           wreckeread: 'Wrecker',
+  ato: 'ATO',                        atoclasss: 'ATO',
+  atoclassworldwide: 'ATO',          atoclasssworld: 'ATO',
+  wflato: 'ATO',
+  wflaffiliate: 'WFL Affiliate',     wflaffliates: 'WFL Affiliate',
+  // ── RLM ──
+  pepper: 'Pepper',                  akosipep: 'Pepper',
+  akosipepvt: 'Pepper',              pep: 'Pepper',
+  aj: 'AJ',                          apriljoy: 'AJ',
+  apriljoybad: 'AJ',                 apriljoylive: 'AJ',
+  wflajad: 'AJ',                     wflajreels: 'AJ',
+  ajheib: 'AJ',
+  yuji: 'Yuji',                      magedad: 'Yuji',
+  magedadyuji: 'Yuji',               magedadyujii: 'Yuji',
+  yujimagedad: 'Yuji',
+  jape: 'Jape',                      japealdea: 'Jape',
+  japealdealive: 'Jape',
+  kim: 'Kim',                        kimsolis: 'Kim',
+  sainty: 'Sainty',                  saintymaxwin: 'Sainty',
+  saintymaxwinreels: 'Sainty',
+  // ── T2B / COW ──
+  time2bet: 'T2B Affiliate',
+  cow: 'COW Affiliate',
+};
 
 // Helper: split array into chunks for Firestore batch (max 500 ops)
 function chunkArray(arr, size = 400) {
@@ -1010,29 +501,29 @@ const defaultCreatorPerfData = {
   '2026-02-21|Affiliate|RLM': { ggr: -5586, bonus: 41, ngr: -5545 },
   '2026-02-22|Affiliate|RLM': { ggr: -1681, bonus: 30, ngr: -1651 },
   '2026-02-23|Affiliate|RLM': { ggr: -103834, bonus: 110, ngr: -103724 },
-  '2026-02-02|GhostWrecker|WFL': { ggr: 44262, bonus: 1357, ngr: 45619 },
-  '2026-02-03|GhostWrecker|WFL': { ggr: 7623, bonus: 5591, ngr: 13214 },
-  '2026-02-04|GhostWrecker|WFL': { ggr: -80152, bonus: 2314, ngr: -77838 },
-  '2026-02-05|GhostWrecker|WFL': { ggr: 917, bonus: 1795, ngr: 2712 },
-  '2026-02-06|GhostWrecker|WFL': { ggr: 55016, bonus: 409, ngr: 55425 },
-  '2026-02-07|GhostWrecker|WFL': { ggr: -69263, bonus: 490, ngr: -68773 },
-  '2026-02-08|GhostWrecker|WFL': { ggr: 17700, bonus: 990, ngr: 18690 },
-  '2026-02-09|GhostWrecker|WFL': { ggr: -57939, bonus: 825, ngr: -57114 },
-  '2026-02-10|GhostWrecker|WFL': { ggr: -23465, bonus: 200, ngr: -23265 },
-  '2026-02-11|GhostWrecker|WFL': { ggr: 130314, bonus: 45, ngr: 130359 },
-  '2026-02-12|GhostWrecker|WFL': { ggr: -267304, bonus: 50, ngr: -267254 },
-  '2026-02-13|GhostWrecker|WFL': { ggr: -34239, bonus: 105, ngr: -34134 },
-  '2026-02-14|GhostWrecker|WFL': { ggr: -59757, bonus: 261, ngr: -59496 },
-  '2026-02-15|GhostWrecker|WFL': { ggr: -42177, bonus: 370, ngr: -41807 },
-  '2026-02-16|GhostWrecker|WFL': { ggr: 476, bonus: 690, ngr: 1166 },
-  '2026-02-17|GhostWrecker|WFL': { ggr: 42934, bonus: 1151, ngr: 44085 },
-  '2026-02-18|GhostWrecker|WFL': { ggr: 17447, bonus: 1090, ngr: 18537 },
-  '2026-02-19|GhostWrecker|WFL': { ggr: -86806, bonus: 357, ngr: -86449 },
-  '2026-02-20|GhostWrecker|WFL': { ggr: 18209, bonus: 160, ngr: 18369 },
-  '2026-02-21|GhostWrecker|WFL': { ggr: -48898, bonus: 367, ngr: -48531 },
-  '2026-02-22|GhostWrecker|WFL': { ggr: -47018, bonus: 705, ngr: -46313 },
-  '2026-02-23|GhostWrecker|WFL': { ggr: -14287, bonus: 484, ngr: -13803 },
-  '2026-02-24|GhostWrecker|WFL': { ggr: 2276, bonus: 305, ngr: 2581 },
+  '2026-02-02|Wrecker|WFL': { ggr: 44262, bonus: 1357, ngr: 45619 },
+  '2026-02-03|Wrecker|WFL': { ggr: 7623, bonus: 5591, ngr: 13214 },
+  '2026-02-04|Wrecker|WFL': { ggr: -80152, bonus: 2314, ngr: -77838 },
+  '2026-02-05|Wrecker|WFL': { ggr: 917, bonus: 1795, ngr: 2712 },
+  '2026-02-06|Wrecker|WFL': { ggr: 55016, bonus: 409, ngr: 55425 },
+  '2026-02-07|Wrecker|WFL': { ggr: -69263, bonus: 490, ngr: -68773 },
+  '2026-02-08|Wrecker|WFL': { ggr: 17700, bonus: 990, ngr: 18690 },
+  '2026-02-09|Wrecker|WFL': { ggr: -57939, bonus: 825, ngr: -57114 },
+  '2026-02-10|Wrecker|WFL': { ggr: -23465, bonus: 200, ngr: -23265 },
+  '2026-02-11|Wrecker|WFL': { ggr: 130314, bonus: 45, ngr: 130359 },
+  '2026-02-12|Wrecker|WFL': { ggr: -267304, bonus: 50, ngr: -267254 },
+  '2026-02-13|Wrecker|WFL': { ggr: -34239, bonus: 105, ngr: -34134 },
+  '2026-02-14|Wrecker|WFL': { ggr: -59757, bonus: 261, ngr: -59496 },
+  '2026-02-15|Wrecker|WFL': { ggr: -42177, bonus: 370, ngr: -41807 },
+  '2026-02-16|Wrecker|WFL': { ggr: 476, bonus: 690, ngr: 1166 },
+  '2026-02-17|Wrecker|WFL': { ggr: 42934, bonus: 1151, ngr: 44085 },
+  '2026-02-18|Wrecker|WFL': { ggr: 17447, bonus: 1090, ngr: 18537 },
+  '2026-02-19|Wrecker|WFL': { ggr: -86806, bonus: 357, ngr: -86449 },
+  '2026-02-20|Wrecker|WFL': { ggr: 18209, bonus: 160, ngr: 18369 },
+  '2026-02-21|Wrecker|WFL': { ggr: -48898, bonus: 367, ngr: -48531 },
+  '2026-02-22|Wrecker|WFL': { ggr: -47018, bonus: 705, ngr: -46313 },
+  '2026-02-23|Wrecker|WFL': { ggr: -14287, bonus: 484, ngr: -13803 },
+  '2026-02-24|Wrecker|WFL': { ggr: 2276, bonus: 305, ngr: 2581 },
   // Jason (JASOON) / WFL
   '2026-02-02|Jason|WFL': { ggr: 28187, bonus: 1295, ngr: 29483 },
   '2026-02-03|Jason|WFL': { ggr: -21140, bonus: 3010, ngr: -18130 },
@@ -1082,29 +573,29 @@ const defaultCreatorPerfData = {
   '2026-02-23|Neggy|WFL': { ggr: -8614, bonus: 0, ngr: -8614 },
   '2026-02-24|Neggy|WFL': { ggr: -1217, bonus: 0, ngr: -1217 },
   // Aether (WOOLFYBETS) / WFL
-  '2026-02-02|Aether|WFL': { ggr: 2307, bonus: 1120, ngr: 3427 },
-  '2026-02-03|Aether|WFL': { ggr: -18251, bonus: 448, ngr: -17803 },
-  '2026-02-04|Aether|WFL': { ggr: -240, bonus: 230, ngr: -10 },
-  '2026-02-05|Aether|WFL': { ggr: -684, bonus: 228, ngr: -455 },
-  '2026-02-06|Aether|WFL': { ggr: -1900, bonus: 60, ngr: -1840 },
-  '2026-02-07|Aether|WFL': { ggr: -379, bonus: 570, ngr: 191 },
-  '2026-02-08|Aether|WFL': { ggr: -2480, bonus: 30, ngr: -2450 },
-  '2026-02-09|Aether|WFL': { ggr: -3356, bonus: 0, ngr: -3356 },
-  '2026-02-10|Aether|WFL': { ggr: -332, bonus: 0, ngr: -332 },
-  '2026-02-11|Aether|WFL': { ggr: 7287, bonus: 0, ngr: 7287 },
-  '2026-02-12|Aether|WFL': { ggr: 2331, bonus: 50, ngr: 2381 },
-  '2026-02-13|Aether|WFL': { ggr: -155, bonus: 30, ngr: -125 },
-  '2026-02-14|Aether|WFL': { ggr: 2938, bonus: 0, ngr: 2938 },
-  '2026-02-15|Aether|WFL': { ggr: -90392, bonus: 50, ngr: -90342 },
-  '2026-02-16|Aether|WFL': { ggr: -4977, bonus: 0, ngr: -4977 },
-  '2026-02-17|Aether|WFL': { ggr: -1500, bonus: 0, ngr: -1500 },
-  '2026-02-18|Aether|WFL': { ggr: 5295, bonus: 0, ngr: 5295 },
-  '2026-02-19|Aether|WFL': { ggr: 982, bonus: 1030, ngr: 2012 },
-  '2026-02-20|Aether|WFL': { ggr: 3709, bonus: 30, ngr: 3739 },
-  '2026-02-21|Aether|WFL': { ggr: 7888, bonus: 150, ngr: 8038 },
-  '2026-02-22|Aether|WFL': { ggr: 4055, bonus: 1560, ngr: 5615 },
-  '2026-02-23|Aether|WFL': { ggr: -23220, bonus: 0, ngr: -23220 },
-  '2026-02-24|Aether|WFL': { ggr: -1718, bonus: 229, ngr: -1489 },
+  '2026-02-02|WoolFyBets|WFL': { ggr: 2307, bonus: 1120, ngr: 3427 },
+  '2026-02-03|WoolFyBets|WFL': { ggr: -18251, bonus: 448, ngr: -17803 },
+  '2026-02-04|WoolFyBets|WFL': { ggr: -240, bonus: 230, ngr: -10 },
+  '2026-02-05|WoolFyBets|WFL': { ggr: -684, bonus: 228, ngr: -455 },
+  '2026-02-06|WoolFyBets|WFL': { ggr: -1900, bonus: 60, ngr: -1840 },
+  '2026-02-07|WoolFyBets|WFL': { ggr: -379, bonus: 570, ngr: 191 },
+  '2026-02-08|WoolFyBets|WFL': { ggr: -2480, bonus: 30, ngr: -2450 },
+  '2026-02-09|WoolFyBets|WFL': { ggr: -3356, bonus: 0, ngr: -3356 },
+  '2026-02-10|WoolFyBets|WFL': { ggr: -332, bonus: 0, ngr: -332 },
+  '2026-02-11|WoolFyBets|WFL': { ggr: 7287, bonus: 0, ngr: 7287 },
+  '2026-02-12|WoolFyBets|WFL': { ggr: 2331, bonus: 50, ngr: 2381 },
+  '2026-02-13|WoolFyBets|WFL': { ggr: -155, bonus: 30, ngr: -125 },
+  '2026-02-14|WoolFyBets|WFL': { ggr: 2938, bonus: 0, ngr: 2938 },
+  '2026-02-15|WoolFyBets|WFL': { ggr: -90392, bonus: 50, ngr: -90342 },
+  '2026-02-16|WoolFyBets|WFL': { ggr: -4977, bonus: 0, ngr: -4977 },
+  '2026-02-17|WoolFyBets|WFL': { ggr: -1500, bonus: 0, ngr: -1500 },
+  '2026-02-18|WoolFyBets|WFL': { ggr: 5295, bonus: 0, ngr: 5295 },
+  '2026-02-19|WoolFyBets|WFL': { ggr: 982, bonus: 1030, ngr: 2012 },
+  '2026-02-20|WoolFyBets|WFL': { ggr: 3709, bonus: 30, ngr: 3739 },
+  '2026-02-21|WoolFyBets|WFL': { ggr: 7888, bonus: 150, ngr: 8038 },
+  '2026-02-22|WoolFyBets|WFL': { ggr: 4055, bonus: 1560, ngr: 5615 },
+  '2026-02-23|WoolFyBets|WFL': { ggr: -23220, bonus: 0, ngr: -23220 },
+  '2026-02-24|WoolFyBets|WFL': { ggr: -1718, bonus: 229, ngr: -1489 },
   // Dogie / T2B
   '2026-02-02|Dogie|T2B': { ggr: -550146, bonus: 123693, ngr: -426453 },
   '2026-02-03|Dogie|T2B': { ggr: -366632, bonus: 92482, ngr: -274151 },
@@ -1319,118 +810,58 @@ const defaultCreatorPerfData = {
 };
 
 export default function App() {
-  // --- DATA STATE ---
-  // MODE A (no Firebase): loads rawData + any localStorage additions immediately
-  // MODE B (Firebase configured): real-time Firestore sync across all devices
+  // --- DATA STATE (localStorage only) ---
   const [data, setData] = useState(() => {
-    if (FIREBASE_CONFIGURED) return [];
     try {
-      const saved = localStorage.getItem('campaignData_v4');
+      const saved = localStorage.getItem('campaignData_v6');
       return saved ? JSON.parse(saved) : rawData;
     } catch { return rawData; }
   });
-  const [loading, setLoading] = useState(FIREBASE_CONFIGURED);
+  const [loading] = useState(false);
 
-  // Persist to localStorage in offline mode
   useEffect(() => {
-    if (!FIREBASE_CONFIGURED) {
-      localStorage.setItem('campaignData_v4', JSON.stringify(data));
-    }
+    localStorage.setItem('campaignData_v6', JSON.stringify(data));
   }, [data]);
-
-  // Firebase mode: real-time listener + auto-seed on first run
-  useEffect(() => {
-    if (!FIREBASE_CONFIGURED) return;
-    const unsub = onSnapshot(collection(db, 'entries'), async (snapshot) => {
-      if (snapshot.empty) {
-        for (const chunk of chunkArray(rawData)) {
-          const batch = writeBatch(db);
-          chunk.forEach(entry => batch.set(doc(collection(db, 'entries')), entry));
-          await batch.commit();
-        }
-        return;
-      }
-      const entries = snapshot.docs
-        .map(d => ({ ...d.data(), id: d.id }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      // Seed any rawData entries whose site doesn't exist in Firestore yet
-      const existingSites = new Set(entries.map(e => e.site));
-      const missingSiteEntries = rawData.filter(e => !existingSites.has(e.site));
-      if (missingSiteEntries.length > 0) {
-        for (const chunk of chunkArray(missingSiteEntries)) {
-          const batch = writeBatch(db);
-          chunk.forEach(entry => batch.set(doc(collection(db, 'entries')), entry));
-          await batch.commit();
-        }
-        return; // snapshot will re-fire with new data
-      }
-      setData(entries);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
 
   // --- VIEW STATE ---
   const [activeView, setActiveView] = useState('dashboard');
 
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState(() => {
-    if (FIREBASE_CONFIGURED) return {};
     try {
       const saved = localStorage.getItem('adsReportData');
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
 
-  // Persist adsReportData to localStorage in offline mode
   useEffect(() => {
-    if (!FIREBASE_CONFIGURED) {
-      localStorage.setItem('adsReportData', JSON.stringify(adsReportData));
-    }
+    localStorage.setItem('adsReportData', JSON.stringify(adsReportData));
   }, [adsReportData]);
-
-  // Firebase mode: real-time adsReport listener
-  useEffect(() => {
-    if (!FIREBASE_CONFIGURED) return;
-    const unsub = onSnapshot(doc(db, 'config', 'adsReport'), (snap) => {
-      if (snap.exists()) setAdsReportData(snap.data());
-    });
-    return unsub;
-  }, []);
 
   // --- CREATOR PERF DATA ---
   const [creatorPerfData, setCreatorPerfData] = useState(() => {
-    if (FIREBASE_CONFIGURED) return defaultCreatorPerfData;
     try {
       const saved = localStorage.getItem('creatorPerfData');
-      return saved ? { ...defaultCreatorPerfData, ...JSON.parse(saved) } : defaultCreatorPerfData;
+      if (!saved) return defaultCreatorPerfData;
+      const migrateKeys = (obj) => {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const newKey = k.replace('|Aether|', '|WoolFyBets|').replace('|GhostWrecker|', '|Wrecker|');
+          out[newKey] = v;
+        }
+        return out;
+      };
+      const parsed = migrateKeys(JSON.parse(saved));
+      return { ...defaultCreatorPerfData, ...parsed };
     } catch { return defaultCreatorPerfData; }
   });
 
   useEffect(() => {
-    if (!FIREBASE_CONFIGURED) {
-      localStorage.setItem('creatorPerfData', JSON.stringify(creatorPerfData));
-    }
+    localStorage.setItem('creatorPerfData', JSON.stringify(creatorPerfData));
   }, [creatorPerfData]);
-
-  useEffect(() => {
-    if (!FIREBASE_CONFIGURED) return;
-    const unsub = onSnapshot(doc(db, 'config', 'creatorPerf'), async (snap) => {
-      if (snap.exists()) {
-        // Merge defaults (lower priority) with saved Firebase data (higher priority)
-        setCreatorPerfData({ ...defaultCreatorPerfData, ...snap.data() });
-      } else {
-        // Seed Firebase with default data on first run
-        await setDoc(doc(db, 'config', 'creatorPerf'), defaultCreatorPerfData);
-        setCreatorPerfData(defaultCreatorPerfData);
-      }
-    });
-    return unsub;
-  }, []);
 
   // --- NO STREAM DATA ---
   const [noStreamData, setNoStreamData] = useState(() => {
-    if (FIREBASE_CONFIGURED) return {};
     try {
       const saved = localStorage.getItem('noStreamData');
       return saved ? JSON.parse(saved) : {};
@@ -1438,18 +869,8 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (!FIREBASE_CONFIGURED) {
-      localStorage.setItem('noStreamData', JSON.stringify(noStreamData));
-    }
+    localStorage.setItem('noStreamData', JSON.stringify(noStreamData));
   }, [noStreamData]);
-
-  useEffect(() => {
-    if (!FIREBASE_CONFIGURED) return;
-    const unsub = onSnapshot(doc(db, 'config', 'noStreamData'), async (snap) => {
-      if (snap.exists()) setNoStreamData(snap.data());
-    });
-    return unsub;
-  }, []);
 
   // --- ADS EDIT MODAL STATE ---
   const [showAdsModal, setShowAdsModal] = useState(false);
@@ -1482,11 +903,7 @@ export default function App() {
         boosting: parseFloat(adsFormValues.boosting) || 0,
       },
     };
-    if (FIREBASE_CONFIGURED) {
-      await setDoc(doc(db, 'config', 'adsReport'), updated);
-    } else {
-      setAdsReportData(updated);
-    }
+    setAdsReportData(updated);
     setShowAdsModal(false);
   };
 
@@ -1516,7 +933,7 @@ export default function App() {
     setShowCreatorPerfModal(true);
   };
 
-  const handleCreatorPerfSave = async () => {
+  const handleCreatorPerfSave = () => {
     const updated = {
       ...creatorPerfData,
       [creatorPerfEditKey]: {
@@ -1528,11 +945,7 @@ export default function App() {
         totalWithdrawal: parseFloat(creatorPerfFormValues.totalWithdrawal) || 0,
       },
     };
-    if (FIREBASE_CONFIGURED) {
-      await setDoc(doc(db, 'config', 'creatorPerf'), updated);
-    } else {
-      setCreatorPerfData(updated);
-    }
+    setCreatorPerfData(updated);
     setShowCreatorPerfModal(false);
   };
 
@@ -1549,94 +962,68 @@ export default function App() {
   };
 
   const openEditModal = (item) => {
-    // Firebase mode: use doc id; offline mode: use array index
-    setEditingId(FIREBASE_CONFIGURED ? item.id : data.indexOf(item));
+    setEditingId(data.indexOf(item));
     const { id: _id, ...rest } = item;
     setFormValues({ ...rest, spend: String(item.spend), reg: String(item.reg), dep: String(item.dep) });
     setShowModal(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formValues.date || !formValues.streamer) return;
     const { id: _id, ...formClean } = formValues;
     const entry = { ...formClean, spend: parseFloat(formClean.spend) || 0, reg: parseInt(formClean.reg) || 0, dep: parseFloat(formClean.dep) || 0 };
-    if (FIREBASE_CONFIGURED) {
-      if (editingId !== null) {
-        await updateDoc(doc(db, 'entries', editingId), entry);
-      } else {
-        await addDoc(collection(db, 'entries'), entry);
-      }
+    if (editingId !== null) {
+      const updated = [...data];
+      updated[editingId] = entry;
+      setData(updated);
     } else {
-      if (editingId !== null) {
-        const updated = [...data];
-        updated[editingId] = entry;
-        setData(updated);
-      } else {
-        setData(prev => [...prev, entry]);
-      }
+      setData(prev => [...prev, entry]);
     }
     setShowModal(false);
   };
 
-  const handleDelete = async (item) => {
+  const handleDelete = (item) => {
     if (window.confirm('Delete this entry?')) {
-      if (FIREBASE_CONFIGURED) {
-        await deleteDoc(doc(db, 'entries', item.id));
-      } else {
-        setData(prev => prev.filter(d => d !== item));
-      }
+      setData(prev => prev.filter(d => d !== item));
     }
   };
 
-  const handleDeleteDay = async (dayEntries) => {
+  const handleDeleteDay = (dayEntries) => {
     if (window.confirm(`Delete all ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day?`)) {
-      if (FIREBASE_CONFIGURED) {
-        const batch = writeBatch(db);
-        dayEntries.forEach(entry => batch.delete(doc(db, 'entries', entry.id)));
-        await batch.commit();
-      } else {
-        setData(prev => prev.filter(d => !dayEntries.includes(d)));
-      }
+      setData(prev => prev.filter(d => !dayEntries.includes(d)));
     }
   };
 
-  const handleMarkNoStream = async (date, streamer, site) => {
+  const handleMarkNoStream = (date, streamer, site) => {
     const key = `${date}|${streamer}|${site}`;
-    const updated = { ...noStreamData, [key]: true };
-    if (FIREBASE_CONFIGURED) {
-      await setDoc(doc(db, 'config', 'noStreamData'), updated);
-    } else {
-      setNoStreamData(updated);
-    }
+    setNoStreamData(prev => ({ ...prev, [key]: true }));
   };
 
-  const handleUnmarkNoStream = async (key) => {
-    const updated = { ...noStreamData };
-    delete updated[key];
-    if (FIREBASE_CONFIGURED) {
-      await setDoc(doc(db, 'config', 'noStreamData'), updated);
-    } else {
-      setNoStreamData(updated);
-    }
+  const handleUnmarkNoStream = (key) => {
+    setNoStreamData(prev => { const u = { ...prev }; delete u[key]; return u; });
   };
 
-  const handleResetData = async () => {
+  const handleResetData = () => {
     if (window.confirm('Reset all data back to the original? All added entries will be lost.')) {
-      if (FIREBASE_CONFIGURED) {
-        const snapshot = await getDocs(collection(db, 'entries'));
-        for (const chunk of chunkArray(snapshot.docs)) {
-          const batch = writeBatch(db);
-          chunk.forEach(d => batch.delete(d.ref));
-          await batch.commit();
-        }
-        for (const chunk of chunkArray(rawData)) {
-          const batch = writeBatch(db);
-          chunk.forEach(entry => batch.set(doc(collection(db, 'entries')), entry));
-          await batch.commit();
-        }
-      } else {
-        setData(rawData);
-      }
+      setData(rawData);
+    }
+  };
+
+  const handleDeduplicateData = () => {
+    const seen = new Set();
+    const deduped = data.filter(e => {
+      const key = `${e.date}|${e.site}|${e.streamer}|${e.link}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const removed = data.length - deduped.length;
+    if (removed === 0) {
+      alert('No duplicates found.');
+      return;
+    }
+    if (window.confirm(`Found ${removed} duplicate entr${removed === 1 ? 'y' : 'ies'}. Remove them?`)) {
+      setData(deduped);
     }
   };
 
@@ -1707,32 +1094,73 @@ export default function App() {
     return { name: cleanName, hint };
   }
 
-  // Smart fuzzy match: tries multiple candidate strings (header, bracket hint, alias) against known streamers
-  function smartMatchStreamer(headerName, hint, aliasName, knownStreamers) {
-    if (!knownStreamers.length) return null;
+  // Smart fuzzy match: checks built-in alias dict first (no existing data needed),
+  // then falls back to matching against known streamers already in the app.
+  function smartMatchStreamer(headerName, hint, aliasName, knownStreamers, filenameHint = '') {
     const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // ── Step 0: built-in alias dictionary (works with zero existing data) ──
+    const tryAlias = (raw) => {
+      const n = norm(raw);
+      if (!n || n.length < 2) return null;
+      // exact key
+      if (STREAMER_ALIASES[n]) return STREAMER_ALIASES[n];
+      // csv token contains an alias key ("saintymaxwin" → "sainty")
+      for (const [key, val] of Object.entries(STREAMER_ALIASES)) {
+        if (key.length >= 3 && n.includes(key)) return val;
+      }
+      // alias key contains csv token ("neggy" inside "neggytv")
+      for (const [key, val] of Object.entries(STREAMER_ALIASES)) {
+        if (key.length >= 3 && key.startsWith(n) && n.length >= 3) return val;
+      }
+      return null;
+    };
+
+    const fromAlias =
+      tryAlias(hint) ||
+      tryAlias(filenameHint) ||
+      tryAlias(headerName) ||
+      tryAlias(aliasName);
+    if (fromAlias) return fromAlias;
+
+    // ── Step 1: match against live streamer list (when app already has data) ──
+    if (!knownStreamers.length) return null;
     const pool = knownStreamers.map(s => ({ name: s, n: norm(s) }));
 
     const tryName = (raw) => {
       const n = norm(raw);
       if (!n || n.length < 2) return null;
-      // 1. Exact
       const exact = pool.find(k => k.n === n);
       if (exact) return exact.name;
-      // 2. Known name is fully inside the CSV token ("saintymaxwin" ⊃ "sainty", "neggytv" ⊃ "neggy")
       const contained = pool.find(k => k.n.length >= 3 && n.includes(k.n));
       if (contained) return contained.name;
-      // 3. CSV token starts a known name ("sainty" → "Sainty")
       const csvStartsKnown = pool.find(k => k.n.length >= 3 && k.n.startsWith(n) && n.length >= 3);
       if (csvStartsKnown) return csvStartsKnown.name;
-      // 4. Known name is at the start of the CSV token ("kimsolis" starts with "kim", "jasoon" starts with "jason")
       const knownStartsCsv = pool.find(k => k.n.length >= 3 && n.startsWith(k.n));
       if (knownStartsCsv) return knownStartsCsv.name;
       return null;
     };
 
-    // Try: bracket/paren hint first (most explicit), then header name, then TOTAL-row alias
-    return tryName(hint) || tryName(headerName) || tryName(aliasName) || null;
+    return tryName(hint) || tryName(filenameHint) || tryName(headerName) || tryName(aliasName) || null;
+  }
+
+  // Extract a streamer name hint embedded in the CSV filename.
+  // e.g. "UNRAVEL EOD TALENTS - WFL - HOLYFATHER.csv" → "HOLYFATHER"
+  function streamerHintFromFilename(filename) {
+    const base = filename.replace(/\.[^.]+$/, ''); // strip extension
+    // Split on common separators and grab non-keyword tokens
+    const skipWords = new Set(['unravel','eod','talents','talent','wfl','rlm','t2b','cow','time2bet','rollem','the','of','end','day','report']);
+    const tokens = base.split(/[\s\-_]+/).map(t => t.trim().toLowerCase()).filter(t => t.length >= 3 && !skipWords.has(t));
+    // Return the first token that has a known alias (most specific match)
+    for (const t of tokens) {
+      const matched = STREAMER_ALIASES[t];
+      if (matched) return matched;
+      // partial: alias key inside token or vice-versa
+      for (const [key, val] of Object.entries(STREAMER_ALIASES)) {
+        if (key.length >= 3 && (t.includes(key) || key.startsWith(t))) return val;
+      }
+    }
+    return null;
   }
 
   function parseEODCsv(text, filename) {
@@ -1783,7 +1211,9 @@ export default function App() {
       const _dep = cleanNum(cols[7]);
       const _ggr = cleanNum(cols[4]);
       const _ngr = cleanNum(cols[6]);
-      if (_reg === 0 && _dep === 0 && _ggr === 0 && _ngr === 0) continue;
+      const _vt  = cleanNum(cols[3]);
+      const _apl = cleanNum(cols[2]);
+      if (_reg === 0 && _dep === 0 && _ggr === 0 && _ngr === 0 && _vt === 0 && _apl === 0) continue;
 
       cur.rows.push({
         date: dateVal,
@@ -1803,11 +1233,28 @@ export default function App() {
 
   // ─── FLAT CSV PARSING (Campaign Data) ────────────────────────────────────
   function parseFlatCSV(text) {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    // Filter lines that are truly empty OR contain only commas/tabs/spaces (no real content)
+    const lines = text.split(/\r?\n/).filter(l => l.replace(/[,\t\s]/g, '').length > 0);
     if (lines.length < 2) return { headers: [], rows: [] };
     const delim = lines[0].split('\t').length > lines[0].split(',').length ? '\t' : ',';
-    const headers = parseCsvLine(lines[0], delim);
-    const rows = lines.slice(1).map(l => parseCsvLine(l, delim));
+
+    // Detect the actual header row — some CSVs (e.g. MEDIA BUYER tracker) have a title row
+    // like "MEDIA BUYER'S TRACKER,,..." before the real column headers.
+    // Scan the first 10 lines for the one that contains recognised field keywords.
+    const headerKeywords = ['date','name','talent','streamer','cost','spend','format','link','reg','dep','site'];
+    const normH = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let headerLineIdx = 0;
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const cells = parseCsvLine(lines[i], delim);
+      const nonEmpty = cells.filter(c => c.trim());
+      if (nonEmpty.length >= 2 && nonEmpty.some(c => headerKeywords.some(k => normH(c).includes(k)))) {
+        headerLineIdx = i;
+        break;
+      }
+    }
+
+    const headers = parseCsvLine(lines[headerLineIdx], delim);
+    const rows = lines.slice(headerLineIdx + 1).map(l => parseCsvLine(l, delim));
     return { headers, rows };
   }
 
@@ -1836,23 +1283,28 @@ export default function App() {
   function buildCampaignPreview(rawRows, mapping) {
     return rawRows.map(row => ({
       date:     normDate(mapping.date     !== undefined ? row[parseInt(mapping.date)]     : ''),
-      site:     mapping.site     !== undefined ? (row[parseInt(mapping.site)]     || '').trim() : '',
+      site:     mapping.site !== undefined
+                  ? (row[parseInt(mapping.site)] || '').trim()
+                  : (mapping._defaultSite || ''),
       streamer: mapping.streamer !== undefined ? (row[parseInt(mapping.streamer)] || '').trim() : '',
       spend:    cleanNum(mapping.spend !== undefined ? row[parseInt(mapping.spend)] : 0),
       reg:      Math.round(cleanNum(mapping.reg !== undefined ? row[parseInt(mapping.reg)] : 0)),
       dep:      cleanNum(mapping.dep   !== undefined ? row[parseInt(mapping.dep)]   : 0),
-      type:     mapping.type !== undefined ? (row[parseInt(mapping.type)] || 'Live').trim() : 'Live',
+      type:     (() => { const raw = (mapping.type !== undefined ? (row[parseInt(mapping.type)] || 'Live') : 'Live').trim(); return /livestream/i.test(raw) ? 'Live' : raw; })(),
       link:     mapping.link !== undefined ? (row[parseInt(mapping.link)] || '').trim() : '',
     })).filter(r => r.date && r.streamer);
   }
 
   // ─── IMPORT STATE ─────────────────────────────────────────────────────────
   const [showImportModal, setShowImportModal]   = useState(false);
+  const [importEODOnly,   setImportEODOnly]     = useState(false); // true when opened from Creator Report
   const [importStep,      setImportStep]        = useState(1);
   const [importMode,      setImportMode]        = useState(null);   // 'eod' | 'campaign'
   const [importDragOver,  setImportDragOver]    = useState(false);
   const [importResult,    setImportResult]      = useState(null);
   const importFileRef = useRef(null);
+
+  const openEODImport = () => { setImportEODOnly(true); setShowImportModal(true); };
 
   // EOD-specific state
   const [eodSections, setEodSections]   = useState([]);   // [{ streamer, editName, site, selected, rows }]
@@ -1872,12 +1324,24 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
+      if (importEODOnly && !isEODFormat(text)) {
+        alert('❌ This file is not an UNRAVEL EOD TALENTS report.\nPlease upload the correct EOD CSV file.');
+        return;
+      }
       if (isEODFormat(text)) {
         const { sections, detectedSite } = parseEODCsv(text, file.name);
-        // Smart-match each section's streamer name against known campaign streamer names
+        // Extract a streamer hint from the filename (e.g. "WFL - HOLYFATHER.csv" → "HolyFather")
+        const fnHint = streamerHintFromFilename(file.name);
+        // When file has only ONE section and the filename contains a streamer name,
+        // use the filename hint as a stronger signal than the section header.
+        const useFnHintDirect = sections.length === 1 && !!fnHint;
         const matched = sections.map(sec => {
-          const known = smartMatchStreamer(sec.streamer, sec.hint, sec.alias, streamers);
-          return { ...sec, editName: known || sec.streamer };
+          const known = useFnHintDirect
+            ? fnHint
+            : smartMatchStreamer(sec.streamer, sec.hint, sec.alias, streamers, fnHint);
+          const resolvedName = known || sec.streamer;
+          const autoMatched = resolvedName !== sec.streamer; // did we improve on the raw header?
+          return { ...sec, editName: resolvedName, autoMatched };
         });
         setEodSections(matched);
         setEodSite(detectedSite);
@@ -1886,6 +1350,12 @@ export default function App() {
         const { headers, rows } = parseFlatCSV(text);
         if (!headers.length) return;
         const mapping = autoMapColumns(headers);
+        // If no site column was found, infer the site from the filename
+        // (e.g. "MEDIA BUYER & TALENTS _ TRACKER - ROLLEM.csv" → 'RLM')
+        if (mapping.site === undefined) {
+          const siteHint = siteFromFilename(file.name);
+          if (siteHint) mapping._defaultSite = siteHint;
+        }
         setCampHeaders(headers);
         setCampRawRows(rows);
         setCampMapping(mapping);
@@ -1897,7 +1367,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const handleEODImport = async () => {
+  const handleEODImport = () => {
     const site = eodSite;
     const newPerf = { ...creatorPerfData };
     let count = 0;
@@ -1917,36 +1387,25 @@ export default function App() {
         count++;
       });
     });
-    if (FIREBASE_CONFIGURED) {
-      await setDoc(doc(db, 'config', 'creatorPerf'), newPerf);
-    } else {
-      setCreatorPerfData(newPerf);
-    }
+    setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
     setImportStep(3);
   };
 
-  const handleCampaignImport = async (skipDuplicates) => {
+  const handleCampaignImport = (skipDuplicates) => {
     const isDup = (e) => data.some(d =>
-      d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.type === e.type
+      d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.link === e.link
     );
     const toImport = skipDuplicates ? campPreview.filter(e => !isDup(e)) : campPreview;
     const skipped  = campPreview.length - toImport.length;
-    if (FIREBASE_CONFIGURED) {
-      for (const chunk of chunkArray(toImport)) {
-        const batch = writeBatch(db);
-        chunk.forEach(entry => batch.set(doc(collection(db, 'entries')), entry));
-        await batch.commit();
-      }
-    } else {
-      setData(prev => [...prev, ...toImport]);
-    }
+    setData(prev => [...prev, ...toImport]);
     setImportResult({ imported: toImport.length, skipped, mode: 'campaign' });
     setImportStep(3);
   };
 
   const closeImportModal = () => {
     setShowImportModal(false);
+    setImportEODOnly(false);
     setImportStep(1);
     setImportMode(null);
     setEodSections([]);
@@ -1959,28 +1418,34 @@ export default function App() {
   };
 
   const uniqueDates = useMemo(() => [...new Set(data.map(d => d.date))].sort(), [data]);
-  const minDate = uniqueDates[0];
 
-  // maxDate includes EOD-imported dates so the filter never silently cuts off new data
+  // minDate and maxDate both consider campaign data AND EOD creatorPerfData dates
+  // so the date range is always valid even when campaign data is empty
+  const minDate = useMemo(() => {
+    const perfDates = Object.keys(creatorPerfData).map(k => k.split('|')[0]);
+    const all = [...uniqueDates, ...perfDates].filter(Boolean).sort();
+    return all[0] || '';
+  }, [uniqueDates, creatorPerfData]);
+
   const maxDate = useMemo(() => {
     const perfDates = Object.keys(creatorPerfData).map(k => k.split('|')[0]);
     const all = [...uniqueDates, ...perfDates].filter(Boolean).sort();
-    return all[all.length - 1] || uniqueDates[uniqueDates.length - 1];
+    return all[all.length - 1] || '';
   }, [uniqueDates, creatorPerfData]);
 
   const [filterSite, setFilterSite] = useState('All');
   const [filterStreamer, setFilterStreamer] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [startDate, setStartDate] = useState(minDate);
-  const [endDate, setEndDate] = useState(() => {
-    const perfDates = Object.keys(creatorPerfData).map(k => k.split('|')[0]);
-    const all = [...uniqueDates, ...perfDates].filter(Boolean).sort();
-    return all[all.length - 1] || uniqueDates[uniqueDates.length - 1];
-  });
+  const [endDate, setEndDate] = useState(maxDate);
 
-  // Auto-extend endDate when newly imported EOD data has later dates
+  // Auto-update date range when data is imported (covers both campaign and EOD CSVs)
   useEffect(() => {
-    if (maxDate && maxDate > endDate) setEndDate(maxDate);
+    if (minDate && (!startDate || minDate < startDate)) setStartDate(minDate);
+  }, [minDate]);
+
+  useEffect(() => {
+    if (maxDate && (!endDate || maxDate > endDate)) setEndDate(maxDate);
   }, [maxDate]);
 
   // --- DERIVED METRICS ---
@@ -1990,7 +1455,7 @@ export default function App() {
       const siteMatch = filterSite === 'All' || item.site === filterSite;
       const streamerMatch = filterStreamer === 'All' || item.streamer === filterStreamer;
       const typeMatch = filterType === 'All' || item.type === filterType;
-      const dateMatch = item.date >= startDate && item.date <= endDate;
+      const dateMatch = (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate);
       return siteMatch && streamerMatch && typeMatch && dateMatch;
     });
   }, [filterSite, filterStreamer, filterType, startDate, endDate]);
@@ -2008,10 +1473,22 @@ export default function App() {
   const globalCreatorNGR = useMemo(() => {
     return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
       const [date, streamer, site] = key.split('|');
-      if (date < startDate || date > endDate) return sum;
+      if (startDate && date < startDate) return sum;
+      if (endDate && date > endDate) return sum;
       if (filterSite !== 'All' && site !== filterSite) return sum;
       if (filterStreamer !== 'All' && streamer !== filterStreamer) return sum;
       return sum + (parseFloat(val.ngr) || 0);
+    }, 0);
+  }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
+
+  const globalCreatorDep = useMemo(() => {
+    return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
+      const [date, streamer, site] = key.split('|');
+      if (startDate && date < startDate) return sum;
+      if (endDate && date > endDate) return sum;
+      if (filterSite !== 'All' && site !== filterSite) return sum;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return sum;
+      return sum + (parseFloat(val.dep) || 0);
     }, 0);
   }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
@@ -2059,9 +1536,10 @@ export default function App() {
       if (filterStreamer !== 'All' && streamer !== filterStreamer) return;
       // Only add to streamers that already appear in the campaign data
       if (!summary[streamer]) return;
-      summary[streamer].ggr    += parseFloat(val.ggr)    || 0;
-      summary[streamer].bonus  += parseFloat(val.bonus)  || 0;
-      summary[streamer].ngr    += parseFloat(val.ngr)    || 0;
+      summary[streamer].dep   += parseFloat(val.dep)   || 0;
+      summary[streamer].ggr   += parseFloat(val.ggr)   || 0;
+      summary[streamer].bonus += parseFloat(val.bonus) || 0;
+      summary[streamer].ngr   += parseFloat(val.ngr)   || 0;
     });
 
     return Object.values(summary)
@@ -2092,11 +1570,16 @@ export default function App() {
 
   const totalROI = getROI(totals.spend, totals.dep);
 
-  // Streamers filtered by selected site so the dropdown only shows relevant streamers
+  // Streamers derived from both campaign data AND creatorPerfData keys (date|streamer|site)
+  // so the Creator Report dropdown is populated even when no campaign CSV has been uploaded yet.
   const streamers = useMemo(() => {
-    const source = filterSite === 'All' ? data : data.filter(d => d.site === filterSite);
-    return [...new Set(source.map(d => d.streamer))].sort();
-  }, [data, filterSite]);
+    const fromData = (filterSite === 'All' ? data : data.filter(d => d.site === filterSite)).map(d => d.streamer);
+    const fromPerf = Object.keys(creatorPerfData).map(k => {
+      const [, streamer, site] = k.split('|');
+      return (filterSite === 'All' || site === filterSite) ? streamer : null;
+    }).filter(Boolean);
+    return [...new Set([...fromData, ...fromPerf])].sort();
+  }, [data, creatorPerfData, filterSite]);
 
   // Reset streamer filter when it no longer belongs to the selected site
   useEffect(() => {
@@ -2105,7 +1588,8 @@ export default function App() {
     }
   }, [streamers, filterStreamer]);
 
-  const sites = [...new Set([...data.map(d => d.site), 'COW', 'T2B'])].filter(s => s !== 'PP').sort();
+  const perfSites = Object.keys(creatorPerfData).map(k => k.split('|')[2]).filter(Boolean);
+  const sites = [...new Set([...data.map(d => d.site), ...perfSites, 'COW', 'T2B'])].filter(s => s && s !== 'PP').sort();
   const types = ["Live", "Reels", "General"];
 
   return (
@@ -2121,12 +1605,14 @@ export default function App() {
               <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                 <Plus size={14} /> Add Entry
               </button>
+              {activeView !== 'creatorReport' && (
               <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                 <Upload size={14} /> Import CSV
               </button>
-              {loading && FIREBASE_CONFIGURED && (
-                <span className="text-xs text-slate-400 animate-pulse">Syncing...</span>
               )}
+              <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                <CheckCircle size={14} /> Dedup
+              </button>
             </div>
             
             <div className="flex flex-wrap gap-2 items-center">
@@ -2218,31 +1704,42 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(() => {
+              const isCreator = activeView === 'creatorReport';
+              const displaySpend = isCreator ? creatorSummary.spend : totals.spend;
+              const displayDep   = isCreator ? creatorSummary.dep   : globalCreatorDep;
+              const displayNGR   = isCreator ? creatorSummary.ngr   : globalCreatorNGR;
+              const displayEff   = isCreator
+                ? (creatorSummary.efficacyRate !== null && creatorSummary.efficacyRate !== undefined ? creatorSummary.efficacyRate : null)
+                : globalEfficacyRate;
+              return (<>
             <MetricCard
               title="Total Ad Spend"
-              value={formatPHP(totals.spend)}
+              value={formatPHP(displaySpend)}
               icon={<ArrowDownRight className="text-red-500" size={16} />}
               color="border-l-4 border-red-500"
             />
             <MetricCard
               title="Total Deposit"
-              value={formatPHP(totals.dep)}
+              value={formatPHP(displayDep)}
               icon={<ArrowUpRight className="text-emerald-500" size={16} />}
               color="border-l-4 border-emerald-500"
             />
             <MetricCard
               title="Total NGR"
-              value={formatPHP(globalCreatorNGR)}
-              icon={<DollarSign className={globalCreatorNGR >= 0 ? "text-indigo-500" : "text-red-500"} size={16} />}
-              color={globalCreatorNGR >= 0 ? "border-l-4 border-indigo-500" : "border-l-4 border-red-500"}
+              value={formatPHP(displayNGR)}
+              icon={<DollarSign className={displayNGR >= 0 ? "text-indigo-500" : "text-red-500"} size={16} />}
+              color={displayNGR >= 0 ? "border-l-4 border-indigo-500" : "border-l-4 border-red-500"}
             />
             <MetricCard
               title="Efficacy Rate"
-              value={globalEfficacyRate !== null ? `${globalEfficacyRate.toFixed(2)}%` : 'N/A'}
-              icon={<TrendingUp className={globalEfficacyRate !== null && globalEfficacyRate >= 100 ? "text-emerald-600" : "text-amber-500"} size={16} />}
+              value={displayEff !== null ? `${displayEff.toFixed(2)}%` : 'N/A'}
+              icon={<TrendingUp className={displayEff !== null && displayEff >= 100 ? "text-emerald-600" : "text-amber-500"} size={16} />}
               subValue="NGR ÷ Ad Spend"
-              color={globalEfficacyRate !== null && globalEfficacyRate >= 100 ? "border-l-4 border-emerald-600" : "border-l-4 border-amber-400"}
+              color={displayEff !== null && displayEff >= 100 ? "border-l-4 border-emerald-600" : "border-l-4 border-amber-400"}
             />
+              </>);
+            })()}
           </div>
         </div>
       </div>
@@ -2439,6 +1936,11 @@ export default function App() {
         <AdsReportView
           filteredData={filteredData}
           adsReportData={adsReportData}
+          creatorPerfData={creatorPerfData}
+          startDate={startDate}
+          endDate={endDate}
+          filterSite={filterSite}
+          filterStreamer={filterStreamer}
           onEdit={openAdsEditModal}
           formatPHP={formatPHP}
           formatNum={formatNum}
@@ -2456,6 +1958,7 @@ export default function App() {
           formatPHP={formatPHP}
           streamers={streamers}
           sites={sites}
+          onImportEOD={openEODImport}
           onAddEntry={(streamer, site) => {
             setEditingId(null);
             setFormValues({ ...emptyForm, date: new Date().toISOString().split('T')[0], streamer, site: (site && site !== 'All') ? site : 'WFL' });
@@ -2542,9 +2045,9 @@ export default function App() {
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> Import CSV</h2>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> {importEODOnly ? 'Import EOD Report' : 'Import CSV'}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {importStep === 1 && 'Drop any CSV — format is detected automatically'}
+                  {importStep === 1 && (importEODOnly ? 'UNRAVEL EOD TALENTS files only' : 'Drop any CSV — format is detected automatically')}
                   {importStep === 2 && importMode === 'eod'      && `EOD Report detected — ${eodSections.length} streamer(s) found`}
                   {importStep === 2 && importMode === 'campaign' && `Campaign data — ${campPreview.length} rows ready`}
                   {importStep === 3 && 'Done!'}
@@ -2568,11 +2071,15 @@ export default function App() {
                 >
                   <Upload size={40} className="mx-auto text-slate-300 mb-3"/>
                   <p className="text-sm font-semibold text-slate-600 mb-1">Click anywhere here or drag & drop a CSV file</p>
-                  <p className="text-xs text-slate-400 mb-4">EOD reports and campaign CSVs are both supported</p>
+                  <p className="text-xs text-slate-400 mb-4">
+                    {importEODOnly ? 'Only UNRAVEL EOD TALENTS CSV files are accepted here' : 'EOD reports and campaign CSVs are both supported'}
+                  </p>
                   <input ref={importFileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={(e) => handleImportFile(e.target.files[0])}/>
                   <div className="flex justify-center gap-4 text-[11px] text-slate-400 mt-4">
-                    <span className="bg-slate-100 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span>
-                    <span className="bg-slate-100 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span>
+                    {importEODOnly
+                      ? <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 rounded-full font-semibold">UNRAVEL EOD TALENTS - *.csv only</span>
+                      : <><span className="bg-slate-100 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span><span className="bg-slate-100 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span></>
+                    }
                   </div>
                 </div>
               )}
@@ -2600,6 +2107,11 @@ export default function App() {
                   </div>
 
                   {/* Streamers table */}
+                  {/* datalist of all known canonical streamer names for autocomplete */}
+                  <datalist id="eod-streamer-names">
+                    {[...new Set(Object.values(STREAMER_ALIASES))].sort().map(n => <option key={n} value={n}/>)}
+                    {streamers.map(n => <option key={'k-'+n} value={n}/>)}
+                  </datalist>
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50">
@@ -2611,6 +2123,7 @@ export default function App() {
                           </th>
                           <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Streamer (from file)</th>
                           <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Import as</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                           <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Rows</th>
                           <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Date range</th>
                         </tr>
@@ -2619,21 +2132,34 @@ export default function App() {
                         {eodSections.map((sec, i) => {
                           const dates = sec.rows.map(r => r.date).filter(Boolean).sort();
                           const dateRange = dates.length ? `${dates[0]} → ${dates[dates.length-1]}` : '—';
+                          const isAutoMatched = sec.autoMatched;
                           return (
-                            <tr key={i} className={sec.selected ? 'hover:bg-slate-50' : 'opacity-40'}>
+                            <tr key={i} className={sec.selected ? (isAutoMatched ? 'hover:bg-slate-50' : 'bg-amber-50/40 hover:bg-amber-50') : 'opacity-40'}>
                               <td className="px-3 py-2 text-center">
                                 <input type="checkbox" checked={sec.selected}
                                   onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, selected: e.target.checked } : s))}
                                   className="rounded"/>
                               </td>
-                              <td className="px-3 py-2 font-medium text-slate-700">{sec.streamer}</td>
+                              <td className="px-3 py-2 font-medium text-slate-500">{sec.streamer}</td>
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
                                   value={sec.editName}
-                                  onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, editName: e.target.value } : s))}
-                                  className="border border-slate-200 rounded px-2 py-0.5 w-28 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                  list="eod-streamer-names"
+                                  onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, editName: e.target.value, autoMatched: true } : s))}
+                                  placeholder="Type streamer name…"
+                                  className={`border rounded px-2 py-0.5 w-36 text-xs focus:outline-none focus:ring-1 ${
+                                    isAutoMatched
+                                      ? 'border-emerald-300 focus:ring-emerald-400'
+                                      : 'border-amber-300 focus:ring-amber-400'
+                                  }`}
                                 />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {isAutoMatched
+                                  ? <span className="inline-flex items-center gap-0.5 bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full"><CheckCircle size={10}/> Matched</span>
+                                  : <span className="inline-flex items-center gap-0.5 bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full"><AlertTriangle size={10}/> Review</span>
+                                }
                               </td>
                               <td className="px-3 py-2 text-center text-slate-500">{sec.rows.length}</td>
                               <td className="px-3 py-2 text-center text-slate-400 whitespace-nowrap">{dateRange}</td>
@@ -2643,6 +2169,12 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
+                  {eodSections.some(s => s.selected && !s.autoMatched) && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                      <AlertTriangle size={13} className="mt-0.5 shrink-0"/>
+                      <span><strong>Review required:</strong> Some streamers could not be auto-identified. Type the correct name in the "Import as" field — it will auto-suggest known names.</span>
+                    </div>
+                  )}
                   <p className="text-[11px] text-slate-400">Data saves to Creator Performance (EOD) tab. Existing entries for the same date+streamer+site are overwritten.</p>
                 </div>
               )}
@@ -2668,20 +2200,26 @@ export default function App() {
                             }`}>
                               {field} {campRequiredFields.includes(field) && <span className="text-red-400">*</span>}
                             </label>
-                            <select
-                              value={campMapping[field] ?? ''}
-                              onChange={e => {
-                                const updated = { ...campMapping, [field]: e.target.value };
-                                setCampMapping(updated);
-                                setCampPreview(buildCampaignPreview(campRawRows, updated));
-                              }}
-                              className="mt-1 w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                            >
-                              <option value="">— skip —</option>
-                              {campHeaders.map((h, idx) => (
-                                <option key={idx} value={String(idx)}>{h || `Column ${idx+1}`}</option>
-                              ))}
-                            </select>
+                            {field === 'site' && campMapping._defaultSite && campMapping.site === undefined ? (
+                              <div className="mt-1 w-full border border-emerald-200 rounded-lg px-2 py-1.5 text-xs bg-emerald-50 text-emerald-700 font-semibold">
+                                Auto: {campMapping._defaultSite} (filename)
+                              </div>
+                            ) : (
+                              <select
+                                value={campMapping[field] ?? ''}
+                                onChange={e => {
+                                  const updated = { ...campMapping, [field]: e.target.value };
+                                  setCampMapping(updated);
+                                  setCampPreview(buildCampaignPreview(campRawRows, updated));
+                                }}
+                                className="mt-1 w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                              >
+                                <option value="">— skip —</option>
+                                {campHeaders.map((h, idx) => (
+                                  <option key={idx} value={String(idx)}>{h || `Column ${idx+1}`}</option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2771,7 +2309,10 @@ export default function App() {
                 const dupCount = campPreview.filter(e => data.some(d =>
                   d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.type === e.type
                 )).length;
-                const missingRequired = campRequiredFields.some(f => !campMapping[f]);
+                const missingRequired = campRequiredFields.some(f => {
+                  if (f === 'site' && campMapping._defaultSite) return false;
+                  return !campMapping[f];
+                });
                 return (
                   <>
                     <button onClick={() => setImportStep(1)} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">← Back</button>
@@ -2918,8 +2459,8 @@ function MetricCard({ title, value, subValue, icon, color }) {
   );
 }
 
-function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
-  // Group: site → streamer → type → { reg, dep }
+function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer, onEdit, formatNum }) {
+  // Group from campaign entries: site → streamer → type → { reg, dep }
   const grouped = {};
   filteredData.forEach(item => {
     if (item.type === 'General') return;
@@ -2934,6 +2475,25 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     }
   });
 
+  // Also merge EOD creatorPerfData: adds sites/streamers missing from campaign data,
+  // and provides GGR/Bonus/NGR directly from the EOD reports.
+  Object.entries(creatorPerfData || {}).forEach(([key, perf]) => {
+    const [date, streamer, site] = key.split('|');
+    if (!date || !streamer || !site) return;
+    if (startDate && date < startDate) return;
+    if (endDate && date > endDate) return;
+    if (filterSite && filterSite !== 'All' && site !== filterSite) return;
+    if (filterStreamer && filterStreamer !== 'All' && streamer !== filterStreamer) return;
+    if (!grouped[site]) grouped[site] = {};
+    if (!grouped[site][streamer]) grouped[site][streamer] = { Live: { reg: 0, dep: 0 }, Reels: { reg: 0, dep: 0 } };
+    if (!grouped[site][streamer]._perf) grouped[site][streamer]._perf = { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0 };
+    grouped[site][streamer]._perf.reg   += perf.reg   || 0;
+    grouped[site][streamer]._perf.dep   += perf.dep   || 0;
+    grouped[site][streamer]._perf.ggr   += perf.ggr   || 0;
+    grouped[site][streamer]._perf.bonus += perf.bonus || 0;
+    grouped[site][streamer]._perf.ngr   += perf.ngr   || 0;
+  });
+
   const SITE_LABELS = { WFL: 'WINFORLIFE', RLM: 'ROLLEM', COW: 'COW', T2B: 'T2B' };
   const getAds = (site, streamer, type) => adsReportData[`${site}|${streamer}|${type}`] || { ggr: 0, bonus: 0, ngr: 0, boosting: 0 };
 
@@ -2943,27 +2503,47 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
   };
 
-  const siteOrder = ['WFL', 'RLM'].filter(s => grouped[s]);
+  // All sites that have any data (campaign or EOD)
+  const siteOrder = ['WFL', 'RLM', 'COW', 'T2B'].filter(s => grouped[s]);
 
   // Pre-compute aggregates
   const siteData = siteOrder.map(site => {
-    const streamers = Object.keys(grouped[site]).sort((a, b) =>
-      (grouped[site][b].Live.reg + grouped[site][b].Reels.reg) -
-      (grouped[site][a].Live.reg + grouped[site][a].Reels.reg)
-    );
+    const streamers = Object.keys(grouped[site]).sort((a, b) => {
+      const regA = grouped[site][a].Live.reg + grouped[site][a].Reels.reg + (grouped[site][a]._perf?.reg || 0);
+      const regB = grouped[site][b].Live.reg + grouped[site][b].Reels.reg + (grouped[site][b]._perf?.reg || 0);
+      return regB - regA;
+    });
     const streamerData = streamers.map(streamer => {
-      const liveStats = grouped[site][streamer].Live;
+      const liveStats  = grouped[site][streamer].Live;
       const reelsStats = grouped[site][streamer].Reels;
-      const liveAds = getAds(site, streamer, 'Live');
-      const reelsAds = getAds(site, streamer, 'Reels');
+      const perf       = grouped[site][streamer]._perf || { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0 };
+      const liveAds    = getAds(site, streamer, 'Live');
+      const reelsAds   = getAds(site, streamer, 'Reels');
+
+      // reg/dep: use campaign entries when present, otherwise fall back to EOD perf totals
+      const campReg = liveStats.reg + reelsStats.reg;
+      const campDep = liveStats.dep + reelsStats.dep;
+      const totalReg = campReg > 0 ? campReg : perf.reg;
+      const totalDep = campDep > 0 ? campDep : perf.dep;
+
+      // GGR/Bonus/NGR: prefer manually entered adsReportData, then EOD perf totals
+      const manualGGR   = liveAds.ggr + reelsAds.ggr;
+      const manualBonus = liveAds.bonus + reelsAds.bonus;
+      const manualNGR   = liveAds.ngr + reelsAds.ngr;
+      const totalGGR    = manualGGR   !== 0 ? manualGGR   : perf.ggr;
+      const totalBonus  = manualBonus !== 0 ? manualBonus : perf.bonus;
+      const totalNGR    = manualNGR   !== 0 ? manualNGR   : perf.ngr;
+      const totalBoosting = liveAds.boosting + reelsAds.boosting;
+
+      // Decide whether to show Live/Reels rows or a single EOD row
+      const hasLive   = liveStats.reg > 0 || liveStats.dep > 0;
+      const hasReels  = reelsStats.reg > 0 || reelsStats.dep > 0;
+      const hasEODOnly = !hasLive && !hasReels && perf.reg > 0;
+
       return {
         streamer, liveStats, reelsStats, liveAds, reelsAds,
-        totalReg: liveStats.reg + reelsStats.reg,
-        totalDep: liveStats.dep + reelsStats.dep,
-        totalGGR: liveAds.ggr + reelsAds.ggr,
-        totalBonus: liveAds.bonus + reelsAds.bonus,
-        totalNGR: liveAds.ngr + reelsAds.ngr,
-        totalBoosting: liveAds.boosting + reelsAds.boosting,
+        perf, hasLive, hasReels, hasEODOnly,
+        totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting,
       };
     });
     const siteTotal = streamerData.reduce((acc, s) => ({
@@ -2994,6 +2574,13 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10">
+      {siteData.length === 0 && (
+        <div className="text-center py-20 text-slate-400">
+          <div className="text-5xl mb-4">📊</div>
+          <p className="font-semibold text-slate-500 text-lg mb-1">No data to display</p>
+          <p className="text-sm">Import an EOD report or campaign CSV to see the Ads Report.</p>
+        </div>
+      )}
       {siteData.map(({ site, streamerData, siteTotal }) => {
         const label = SITE_LABELS[site] || site;
         const colorCls = site === 'WFL' ? 'bg-blue-600' : site === 'RLM' ? 'bg-purple-600' : site === 'COW' ? 'bg-teal-600' : site === 'T2B' ? 'bg-rose-600' : 'bg-slate-600';
@@ -3006,10 +2593,8 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
             </div>
 
             {/* Per-Streamer Cards */}
-            {streamerData.map(({ streamer, liveStats, reelsStats, liveAds, reelsAds, totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting }) => {
+            {streamerData.map(({ streamer, liveStats, reelsStats, liveAds, reelsAds, perf, hasLive, hasReels, hasEODOnly, totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting }) => {
               const lbl = streamer.toUpperCase();
-              const hasLive = liveStats.reg > 0 || liveStats.dep > 0;
-              const hasReels = reelsStats.reg > 0 || reelsStats.dep > 0;
               return (
                 <div key={streamer} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
@@ -3059,6 +2644,22 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(reelsAds.bonus)}</td>
                             <td className={`px-4 py-2.5 text-right font-medium ${reelsAds.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(reelsAds.ngr)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(reelsAds.boosting)}</td>
+                          </tr>
+                        )}
+                        {/* EOD-only row: shown when no campaign entries exist but EOD data does */}
+                        {hasEODOnly && (
+                          <tr className="hover:bg-sky-50/30 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-slate-700">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-sky-400 inline-block"></span>EOD Data
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{formatNum(perf.reg)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{fmtVal(perf.dep)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(perf.ggr)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(perf.bonus)}</td>
+                            <td className={`px-4 py-2.5 text-right font-medium ${perf.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(perf.ngr)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-400">—</td>
                           </tr>
                         )}
                         <tr className="bg-slate-50 border-t border-slate-200 font-semibold text-slate-700">
@@ -3122,17 +2723,22 @@ function AdsReportView({ filteredData, adsReportData, onEdit, formatNum }) {
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream }) {
+function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD }) {
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
+
+  // Auto-select first streamer when list becomes available (e.g. after EOD import with no campaign data)
+  React.useEffect(() => {
+    if (!selectedStreamer && streamers.length > 0) setSelectedStreamer(streamers[0]);
+  }, [streamers]);
   const [expandedRow, setExpandedRow] = React.useState(null);
   const [noStreamDateInput, setNoStreamDateInput] = React.useState('');
 
   // Filter data for the selected creator
   const creatorEntries = data.filter(d =>
     d.streamer === selectedStreamer &&
-    d.date >= startDate &&
-    d.date <= endDate &&
+    (!startDate || d.date >= startDate) &&
+    (!endDate   || d.date <= endDate) &&
     (selectedSite === 'All' || d.site === selectedSite)
   );
 
@@ -3141,7 +2747,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     .filter(key => {
       const [date, streamer, site] = key.split('|');
       return streamer === selectedStreamer &&
-        date >= startDate && date <= endDate &&
+        (!startDate || date >= startDate) &&
+        (!endDate   || date <= endDate) &&
         (selectedSite === 'All' || site === selectedSite);
     })
     .map(key => key.split('|')[0]);
@@ -3153,7 +2760,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     .filter(key => {
       const [date, streamer, site] = key.split('|');
       return streamer === selectedStreamer &&
-        date >= startDate && date <= endDate &&
+        (!startDate || date >= startDate) &&
+        (!endDate   || date <= endDate) &&
         (selectedSite === 'All' || site === selectedSite);
     })
     .map(key => {
@@ -3165,18 +2773,20 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   const entryRows = creatorDates.map(date => {
     const dayEntries = creatorEntries.filter(e => e.date === date);
     const totalSpend = dayEntries.reduce((s, e) => s + e.spend, 0);
-    const totalDep = dayEntries.reduce((s, e) => s + e.dep, 0);
-    const totalReg = dayEntries.reduce((s, e) => s + e.reg, 0);
     // Use site from campaign entry if available, otherwise find from creatorPerfData
     let siteName = dayEntries[0]?.site || '';
     if (!siteName && selectedSite !== 'All') siteName = selectedSite;
     if (!siteName) {
-      // Find the site from creatorPerfData key for this date+streamer
       const perfKey = Object.keys(creatorPerfData).find(k => k.startsWith(`${date}|${selectedStreamer}|`));
       if (perfKey) siteName = perfKey.split('|')[2];
     }
     const key = `${date}|${selectedStreamer}|${siteName}`;
-    const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 };
+    const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0, reg: 0, dep: 0 };
+    // Always prefer EOD perf data for reg/dep (authoritative source); campaign entries carry 0 as placeholders
+    const campaignReg = dayEntries.reduce((s, e) => s + e.reg, 0);
+    const campaignDep = dayEntries.reduce((s, e) => s + e.dep, 0);
+    const totalReg = (perf.reg != null && perf.reg > 0) ? perf.reg : campaignReg;
+    const totalDep = (perf.dep != null && perf.dep > 0) ? perf.dep : campaignDep;
     const efficacyRate = totalSpend > 0 ? (perf.ngr / totalSpend) * 100 : null;
     return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: false };
   });
@@ -3193,16 +2803,38 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     bonus: acc.bonus + (r.bonus || 0),
     ngr: acc.ngr + (r.ngr || 0),
     activePl: acc.activePl + (r.activePl || 0),
-    validTurnover: acc.validTurnover + (r.validTurnover || 0),
-    totalWithdrawal: acc.totalWithdrawal + (r.totalWithdrawal || 0),
+    validTurnover: parseFloat((acc.validTurnover + (r.validTurnover || 0)).toFixed(2)),
+    totalWithdrawal: parseFloat((acc.totalWithdrawal + (r.totalWithdrawal || 0)).toFixed(2)),
   }), { spend: 0, dep: 0, reg: 0, ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 });
 
   const totalEfficacy = totals.spend > 0 ? (totals.ngr / totals.spend) * 100 : null;
 
+  // Grand totals across ALL streamers (for the header summary cards)
+  const allTotals = React.useMemo(() => {
+    const filtered = data.filter(d =>
+      (!startDate || d.date >= startDate) &&
+      (!endDate   || d.date <= endDate)
+    );
+    const allSpend = filtered.reduce((s, e) => s + e.spend, 0);
+    const campaignDep = filtered.reduce((s, e) => s + e.dep, 0);
+    let perfDep = 0, perfNGR = 0;
+    Object.entries(creatorPerfData).forEach(([key, perf]) => {
+      const [date] = key.split('|');
+      if ((!startDate || date >= startDate) && (!endDate || date <= endDate)) {
+        perfDep  += perf.dep || 0;
+        perfNGR  += perf.ngr || 0;
+      }
+    });
+    const allDep = perfDep > 0 ? perfDep : campaignDep;
+    const allNGR = perfNGR;
+    const allEfficacy = allSpend > 0 ? (allNGR / allSpend) * 100 : null;
+    return { spend: allSpend, dep: allDep, ngr: allNGR, efficacyRate: allEfficacy };
+  }, [data, creatorPerfData, startDate, endDate]);
+
   // Lift summary up to header
   React.useEffect(() => {
-    onSummaryChange({ spend: totals.spend, dep: totals.dep, ngr: totals.ngr, efficacyRate: totalEfficacy });
-  }, [totals.spend, totals.dep, totals.ngr, totalEfficacy]);
+    onSummaryChange(allTotals);
+  }, [allTotals.spend, allTotals.dep, allTotals.ngr, allTotals.efficacyRate]);
 
   // Index of the last actual (non-noStream) row for PENDING badge
   const lastEntryIdx = rows.reduce((last, r, i) => (!r.noStream ? i : last), -1);
@@ -3259,6 +2891,12 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors"
         >
           <Plus size={15}/> Add Day
+        </button>
+        <button
+          onClick={onImportEOD}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+        >
+          <Upload size={15}/> Import EOD
         </button>
         {/* No Stream date picker */}
         <div className="flex items-center gap-2">
