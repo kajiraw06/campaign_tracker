@@ -3045,7 +3045,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
 
   const creatorDates = [...new Set([...creatorEntries.map(d => d.date), ...perfDates])].sort();
 
-  // Get no-stream keys for this streamer in the selected site + date range
+  // Get manually-marked no-stream keys for this streamer in the selected site + date range
   const noStreamRows = Object.keys(noStreamData)
     .filter(key => {
       const [date, streamer, site] = key.split('|');
@@ -3058,6 +3058,42 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
       const [date, , site] = key.split('|');
       return { date, siteName: site, noStream: true, key };
     });
+
+  // Auto-detect no-stream dates: any date between the streamer's first and last entry
+  // (within the selected date range) that has no campaign data AND no EOD perf entry.
+  const autoNoStreamRows = React.useMemo(() => {
+    if (creatorDates.length < 2) return [];
+    // Determine the streamer's active window (clamped to the selected date range)
+    const streamerFirst = creatorDates[0];
+    const streamerLast  = creatorDates[creatorDates.length - 1];
+    const winStart = startDate && startDate > streamerFirst ? startDate : streamerFirst;
+    const winEnd   = endDate   && endDate   < streamerLast  ? endDate   : streamerLast;
+
+    // Infer default site for this streamer
+    const defaultSite = selectedSite !== 'All'
+      ? selectedSite
+      : (data.find(d => d.streamer === selectedStreamer)?.site ||
+         Object.keys(creatorPerfData).find(k => k.split('|')[1] === selectedStreamer)?.split('|')[2] || '');
+
+    const existingDates    = new Set(creatorDates);
+    const manualNoStreamDates = new Set(
+      Object.keys(noStreamData)
+        .filter(k => k.split('|')[1] === selectedStreamer)
+        .map(k => k.split('|')[0])
+    );
+
+    const results = [];
+    let cur = new Date(winStart + 'T00:00:00');
+    const last = new Date(winEnd + 'T00:00:00');
+    while (cur <= last) {
+      const d = cur.toISOString().slice(0, 10);
+      if (!existingDates.has(d) && !manualNoStreamDates.has(d)) {
+        results.push({ date: d, siteName: defaultSite, noStream: true, key: null, isAuto: true });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return results;
+  }, [creatorDates, startDate, endDate, selectedStreamer, selectedSite, data, creatorPerfData, noStreamData]);
 
   // Build per-day rows (include dayEntries for inline editing)
   const entryRows = creatorDates.map(date => {
@@ -3081,8 +3117,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: false };
   });
 
-  // Merge and sort all rows by date
-  const rows = [...entryRows, ...noStreamRows].sort((a, b) => a.date.localeCompare(b.date));
+  // Merge and sort all rows by date (manual no-stream + auto-detected + data rows)
+  const rows = [...entryRows, ...noStreamRows, ...autoNoStreamRows].sort((a, b) => a.date.localeCompare(b.date));
 
   // Totals (exclude no-stream rows)
   const totals = rows.filter(r => !r.noStream).reduce((acc, r) => ({
@@ -3257,19 +3293,24 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       <td colSpan={9} className="px-2 py-2 text-center">
                         <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-semibold tracking-wider">
                           <X size={11} className="text-slate-400"/> NO STREAM
+                          {row.isAuto && <span className="ml-1 text-slate-300 font-normal">(auto)</span>}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-center">
                         <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-500 border border-slate-300">NO STREAM</span>
                       </td>
                       <td className="px-2 py-2 text-center">
-                        <button
-                          onClick={() => onUnmarkNoStream(row.key)}
-                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Remove no-stream marker"
-                        >
-                          <Trash2 size={12}/>
-                        </button>
+                        {row.isAuto ? (
+                          <span className="text-xs text-slate-300 italic">auto</span>
+                        ) : (
+                          <button
+                            onClick={() => onUnmarkNoStream(row.key)}
+                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Remove no-stream marker"
+                          >
+                            <Trash2 size={12}/>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
