@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 import { db, FIREBASE_CONFIGURED } from './firebase';
 import {
   collection, doc, onSnapshot, addDoc, updateDoc,
@@ -1640,15 +1640,348 @@ export default function App() {
     }
   };
 
-  const uniqueDates = [...new Set(data.map(d => d.date))].sort();
+  // ─── CSV HELPERS ──────────────────────────────────────────────────────────
+  function parseCsvLine(line, delimiter = ',') {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === delimiter && !inQ) { result.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  function cleanNum(val) {
+    if (val === null || val === undefined || val === '') return 0;
+    return parseFloat(String(val).replace(/[₱,\s]/g, '')) || 0;
+  }
+
+  function normDate(s) {
+    if (!s) return '';
+    s = s.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+    const mo = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    const dmy = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+    if (dmy) { const m = mo[dmy[2].toLowerCase().slice(0,3)]; if (m) return `${dmy[3]}-${String(m).padStart(2,'0')}-${dmy[1].padStart(2,'0')}`; }
+    return s;
+  }
+
+  function isValidDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+
+  // ─── EOD FORMAT DETECTION & PARSING ──────────────────────────────────────
+  function isEODFormat(text) {
+    return /OF DAY REPORT|END OF\s+THE\s+DAY|END OF DAY/i.test(text);
+  }
+
+  function siteFromFilename(name) {
+    const f = name.toLowerCase();
+    if (f.includes('time2bet')) return 'T2B';
+    if (f.includes('rollem') || f.includes('_rlm') || f.includes('-rlm')) return 'RLM';
+    if (f.includes('_wfl') || f.includes('-wfl') || f.includes('wfl')) return 'WFL';
+    if (f.includes('cow')) return 'COW';
+    return '';
+  }
+
+  // Returns { name, hint } — name is the cleaned header word, hint is bracket/paren content
+  function streamerFromHeader(line) {
+    // Extract hint from brackets or parens BEFORE stripping: "WOOLFYBETS [AETHER]" → hint "AETHER"
+    const bracketMatch = line.match(/\[([^\]]+)\]|\(([^)]+)\)/);
+    const hint = bracketMatch ? (bracketMatch[1] || bracketMatch[2]).trim() : '';
+
+    let name = line
+      .replace(/\s*:.*$/i, '')              // remove everything after :
+      .replace(/\[[^\]]*\]/g, '')           // remove [bracket] content
+      .replace(/\([^)]*\)/g, '')            // remove (paren) content
+      .replace(/\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER).*/i, '')
+      .replace(/[&]?LP$/i, '')              // strip &LP or LP suffix
+      .replace(/^(?:WFL|RLM|T2B|COW)/i, '') // strip site prefix
+      .trim();
+    const cleanName = name
+      ? name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      : 'Unknown';
+    return { name: cleanName, hint };
+  }
+
+  // Smart fuzzy match: tries multiple candidate strings (header, bracket hint, alias) against known streamers
+  function smartMatchStreamer(headerName, hint, aliasName, knownStreamers) {
+    if (!knownStreamers.length) return null;
+    const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const pool = knownStreamers.map(s => ({ name: s, n: norm(s) }));
+
+    const tryName = (raw) => {
+      const n = norm(raw);
+      if (!n || n.length < 2) return null;
+      // 1. Exact
+      const exact = pool.find(k => k.n === n);
+      if (exact) return exact.name;
+      // 2. Known name is fully inside the CSV token ("saintymaxwin" ⊃ "sainty", "neggytv" ⊃ "neggy")
+      const contained = pool.find(k => k.n.length >= 3 && n.includes(k.n));
+      if (contained) return contained.name;
+      // 3. CSV token starts a known name ("sainty" → "Sainty")
+      const csvStartsKnown = pool.find(k => k.n.length >= 3 && k.n.startsWith(n) && n.length >= 3);
+      if (csvStartsKnown) return csvStartsKnown.name;
+      // 4. Known name is at the start of the CSV token ("kimsolis" starts with "kim", "jasoon" starts with "jason")
+      const knownStartsCsv = pool.find(k => k.n.length >= 3 && n.startsWith(k.n));
+      if (knownStartsCsv) return knownStartsCsv.name;
+      return null;
+    };
+
+    // Try: bracket/paren hint first (most explicit), then header name, then TOTAL-row alias
+    return tryName(hint) || tryName(headerName) || tryName(aliasName) || null;
+  }
+
+  function parseEODCsv(text, filename) {
+    const detectedSite = siteFromFilename(filename);
+    const lines = text.split(/\r?\n/);
+    const sections = [];
+    let cur = null;
+    let inData = false;
+
+    const isHeaderLine = (line) =>
+      /(?:OF DAY REPORT|END OF\s+THE\s+DAY|END OF DAY)/i.test(line) &&
+      !/^,/.test(line.trim());
+
+    const isColHeaderLine = (cols) =>
+      cols[0]?.toUpperCase().trim() === 'DAY' &&
+      cols[1]?.toUpperCase().includes('REGISTER');
+
+    const isSummaryLine = (cols) =>
+      cols[1]?.toUpperCase().includes('TOTAL') ||
+      /^Demo and With Risk/i.test(cols[0] || '');
+
+    for (const raw of lines) {
+      const cols = parseCsvLine(raw);
+      const first = (cols[0] || '').trim();
+
+      if (isHeaderLine(raw)) {
+        if (cur && cur.rows.length > 0) sections.push(cur);
+        const { name: parsedName, hint } = streamerFromHeader(first);
+        cur = { streamer: parsedName, hint, editName: parsedName, alias: '', site: detectedSite, selected: true, rows: [] };
+        inData = false;
+        continue;
+      }
+      if (!cur) continue;
+      if (isColHeaderLine(cols)) { inData = true; continue; }
+      if (!inData) continue;
+      if (isSummaryLine(cols)) {
+        // Capture the TOTAL row's first cell as an alias (e.g. "ajheib", "akosipepper", "MageDadYujii")
+        if (first && !first.startsWith(',')) cur.alias = first;
+        continue;
+      }
+
+      const dateVal = normDate(first);
+      if (!isValidDate(dateVal)) continue;
+      // Skip empty strings
+      if (!cols[1] && !cols[7]) continue;
+      // Skip all-zero rows (future placeholder dates)
+      const _reg = cleanNum(cols[1]);
+      const _dep = cleanNum(cols[7]);
+      const _ggr = cleanNum(cols[4]);
+      const _ngr = cleanNum(cols[6]);
+      if (_reg === 0 && _dep === 0 && _ggr === 0 && _ngr === 0) continue;
+
+      cur.rows.push({
+        date: dateVal,
+        reg:             Math.round(cleanNum(cols[1])),
+        activePl:        cleanNum(cols[2]),
+        validTurnover:   cleanNum(cols[3]),
+        ggr:             cleanNum(cols[4]),
+        bonus:           cleanNum(cols[5]),
+        ngr:             cleanNum(cols[6]),
+        dep:             cleanNum(cols[7]),
+        totalWithdrawal: cleanNum(cols[8]),
+      });
+    }
+    if (cur && cur.rows.length > 0) sections.push(cur);
+    return { sections, detectedSite };
+  }
+
+  // ─── FLAT CSV PARSING (Campaign Data) ────────────────────────────────────
+  function parseFlatCSV(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return { headers: [], rows: [] };
+    const delim = lines[0].split('\t').length > lines[0].split(',').length ? '\t' : ',';
+    const headers = parseCsvLine(lines[0], delim);
+    const rows = lines.slice(1).map(l => parseCsvLine(l, delim));
+    return { headers, rows };
+  }
+
+  function autoMapColumns(headers) {
+    const mapping = {};
+    const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matchers = {
+      date:     ['date','livestreamdate','streamdate','day'],
+      site:     ['site'],
+      streamer: ['streamer','talentsname','talent','name','creator'],
+      spend:    ['spend','cost','adspend','adcost'],
+      reg:      ['reg','register','registers','registrations'],
+      dep:      ['dep','deposit','deposits','totaldeposit'],
+      type:     ['type','format'],
+      link:     ['link','url','livestreamlink'],
+    };
+    headers.forEach((h, i) => {
+      const n = norm(h);
+      for (const [field, ms] of Object.entries(matchers)) {
+        if (mapping[field] === undefined && ms.some(m => n.includes(m))) mapping[field] = String(i);
+      }
+    });
+    return mapping;
+  }
+
+  function buildCampaignPreview(rawRows, mapping) {
+    return rawRows.map(row => ({
+      date:     normDate(mapping.date     !== undefined ? row[parseInt(mapping.date)]     : ''),
+      site:     mapping.site     !== undefined ? (row[parseInt(mapping.site)]     || '').trim() : '',
+      streamer: mapping.streamer !== undefined ? (row[parseInt(mapping.streamer)] || '').trim() : '',
+      spend:    cleanNum(mapping.spend !== undefined ? row[parseInt(mapping.spend)] : 0),
+      reg:      Math.round(cleanNum(mapping.reg !== undefined ? row[parseInt(mapping.reg)] : 0)),
+      dep:      cleanNum(mapping.dep   !== undefined ? row[parseInt(mapping.dep)]   : 0),
+      type:     mapping.type !== undefined ? (row[parseInt(mapping.type)] || 'Live').trim() : 'Live',
+      link:     mapping.link !== undefined ? (row[parseInt(mapping.link)] || '').trim() : '',
+    })).filter(r => r.date && r.streamer);
+  }
+
+  // ─── IMPORT STATE ─────────────────────────────────────────────────────────
+  const [showImportModal, setShowImportModal]   = useState(false);
+  const [importStep,      setImportStep]        = useState(1);
+  const [importMode,      setImportMode]        = useState(null);   // 'eod' | 'campaign'
+  const [importDragOver,  setImportDragOver]    = useState(false);
+  const [importResult,    setImportResult]      = useState(null);
+  const importFileRef = useRef(null);
+
+  // EOD-specific state
+  const [eodSections, setEodSections]   = useState([]);   // [{ streamer, editName, site, selected, rows }]
+  const [eodSite,     setEodSite]       = useState('');
+
+  // Campaign-specific state
+  const [campHeaders,  setCampHeaders]  = useState([]);
+  const [campRawRows,  setCampRawRows]  = useState([]);
+  const [campMapping,  setCampMapping]  = useState({});
+  const [campPreview,  setCampPreview]  = useState([]);
+  const campRequiredFields = ['date', 'site', 'streamer'];
+  const campAllFields      = ['date', 'site', 'streamer', 'spend', 'reg', 'dep', 'type', 'link'];
+
+  // ─── IMPORT HANDLERS ──────────────────────────────────────────────────────
+  const handleImportFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      if (isEODFormat(text)) {
+        const { sections, detectedSite } = parseEODCsv(text, file.name);
+        // Smart-match each section's streamer name against known campaign streamer names
+        const matched = sections.map(sec => {
+          const known = smartMatchStreamer(sec.streamer, sec.hint, sec.alias, streamers);
+          return { ...sec, editName: known || sec.streamer };
+        });
+        setEodSections(matched);
+        setEodSite(detectedSite);
+        setImportMode('eod');
+      } else {
+        const { headers, rows } = parseFlatCSV(text);
+        if (!headers.length) return;
+        const mapping = autoMapColumns(headers);
+        setCampHeaders(headers);
+        setCampRawRows(rows);
+        setCampMapping(mapping);
+        setCampPreview(buildCampaignPreview(rows, mapping));
+        setImportMode('campaign');
+      }
+      setImportStep(2);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleEODImport = async () => {
+    const site = eodSite;
+    const newPerf = { ...creatorPerfData };
+    let count = 0;
+    eodSections.filter(s => s.selected).forEach(section => {
+      section.rows.forEach(row => {
+        const key = `${row.date}|${section.editName}|${site}`;
+        newPerf[key] = {
+          ggr:             row.ggr,
+          bonus:           row.bonus,
+          ngr:             row.ngr,
+          activePl:        row.activePl,
+          validTurnover:   row.validTurnover,
+          totalWithdrawal: row.totalWithdrawal,
+          reg:             row.reg,
+          dep:             row.dep,
+        };
+        count++;
+      });
+    });
+    if (FIREBASE_CONFIGURED) {
+      await setDoc(doc(db, 'config', 'creatorPerf'), newPerf);
+    } else {
+      setCreatorPerfData(newPerf);
+    }
+    setImportResult({ imported: count, skipped: 0, mode: 'eod' });
+    setImportStep(3);
+  };
+
+  const handleCampaignImport = async (skipDuplicates) => {
+    const isDup = (e) => data.some(d =>
+      d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.type === e.type
+    );
+    const toImport = skipDuplicates ? campPreview.filter(e => !isDup(e)) : campPreview;
+    const skipped  = campPreview.length - toImport.length;
+    if (FIREBASE_CONFIGURED) {
+      for (const chunk of chunkArray(toImport)) {
+        const batch = writeBatch(db);
+        chunk.forEach(entry => batch.set(doc(collection(db, 'entries')), entry));
+        await batch.commit();
+      }
+    } else {
+      setData(prev => [...prev, ...toImport]);
+    }
+    setImportResult({ imported: toImport.length, skipped, mode: 'campaign' });
+    setImportStep(3);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportStep(1);
+    setImportMode(null);
+    setEodSections([]);
+    setEodSite('');
+    setCampHeaders([]);
+    setCampRawRows([]);
+    setCampMapping({});
+    setCampPreview([]);
+    setImportResult(null);
+  };
+
+  const uniqueDates = useMemo(() => [...new Set(data.map(d => d.date))].sort(), [data]);
   const minDate = uniqueDates[0];
-  const maxDate = uniqueDates[uniqueDates.length - 1];
+
+  // maxDate includes EOD-imported dates so the filter never silently cuts off new data
+  const maxDate = useMemo(() => {
+    const perfDates = Object.keys(creatorPerfData).map(k => k.split('|')[0]);
+    const all = [...uniqueDates, ...perfDates].filter(Boolean).sort();
+    return all[all.length - 1] || uniqueDates[uniqueDates.length - 1];
+  }, [uniqueDates, creatorPerfData]);
 
   const [filterSite, setFilterSite] = useState('All');
   const [filterStreamer, setFilterStreamer] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [startDate, setStartDate] = useState(minDate);
-  const [endDate, setEndDate] = useState(maxDate);
+  const [endDate, setEndDate] = useState(() => {
+    const perfDates = Object.keys(creatorPerfData).map(k => k.split('|')[0]);
+    const all = [...uniqueDates, ...perfDates].filter(Boolean).sort();
+    return all[all.length - 1] || uniqueDates[uniqueDates.length - 1];
+  });
+
+  // Auto-extend endDate when newly imported EOD data has later dates
+  useEffect(() => {
+    if (maxDate && maxDate > endDate) setEndDate(maxDate);
+  }, [maxDate]);
 
   // --- DERIVED METRICS ---
   const filteredData = useMemo(() => {
@@ -1787,6 +2120,9 @@ export default function App() {
               <h1 className="text-xl md:text-2xl font-bold text-indigo-900 tracking-tight">Campaign Performance</h1>
               <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                 <Plus size={14} /> Add Entry
+              </button>
+              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                <Upload size={14} /> Import CSV
               </button>
               {loading && FIREBASE_CONFIGURED && (
                 <span className="text-xs text-slate-400 animate-pulse">Syncing...</span>
@@ -2199,6 +2535,278 @@ export default function App() {
         </div>
       )}
 
+      {/* CSV IMPORT MODAL */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && closeImportModal()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> Import CSV</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {importStep === 1 && 'Drop any CSV — format is detected automatically'}
+                  {importStep === 2 && importMode === 'eod'      && `EOD Report detected — ${eodSections.length} streamer(s) found`}
+                  {importStep === 2 && importMode === 'campaign' && `Campaign data — ${campPreview.length} rows ready`}
+                  {importStep === 3 && 'Done!'}
+                </p>
+              </div>
+              <button onClick={closeImportModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+
+              {/* STEP 1 — File Upload */}
+              {importStep === 1 && (
+                <div
+                  className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+                    importDragOver ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'
+                  }`}
+                  onClick={() => importFileRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setImportDragOver(true); }}
+                  onDragLeave={() => setImportDragOver(false)}
+                  onDrop={(e) => { e.preventDefault(); setImportDragOver(false); handleImportFile(e.dataTransfer.files[0]); }}
+                >
+                  <Upload size={40} className="mx-auto text-slate-300 mb-3"/>
+                  <p className="text-sm font-semibold text-slate-600 mb-1">Click anywhere here or drag & drop a CSV file</p>
+                  <p className="text-xs text-slate-400 mb-4">EOD reports and campaign CSVs are both supported</p>
+                  <input ref={importFileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={(e) => handleImportFile(e.target.files[0])}/>
+                  <div className="flex justify-center gap-4 text-[11px] text-slate-400 mt-4">
+                    <span className="bg-slate-100 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span>
+                    <span className="bg-slate-100 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2 — EOD Mode: Streamers review */}
+              {importStep === 2 && importMode === 'eod' && (
+                <div className="space-y-4">
+                  {/* Site selector */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Site:</label>
+                    <div className="flex gap-2">
+                      {['WFL','RLM','T2B','COW'].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setEodSite(s)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
+                            eodSite === s
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'border-slate-200 text-slate-500 hover:border-indigo-300'
+                          }`}
+                        >{s}</button>
+                      ))}
+                    </div>
+                    {!eodSite && <span className="text-xs text-amber-600 font-semibold">← please confirm the site</span>}
+                  </div>
+
+                  {/* Streamers table */}
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-3 py-2 w-8">
+                            <input type="checkbox" checked={eodSections.every(s => s.selected)}
+                              onChange={e => setEodSections(prev => prev.map(s => ({ ...s, selected: e.target.checked })))}
+                              className="rounded"/>
+                          </th>
+                          <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Streamer (from file)</th>
+                          <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Import as</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Rows</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Date range</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {eodSections.map((sec, i) => {
+                          const dates = sec.rows.map(r => r.date).filter(Boolean).sort();
+                          const dateRange = dates.length ? `${dates[0]} → ${dates[dates.length-1]}` : '—';
+                          return (
+                            <tr key={i} className={sec.selected ? 'hover:bg-slate-50' : 'opacity-40'}>
+                              <td className="px-3 py-2 text-center">
+                                <input type="checkbox" checked={sec.selected}
+                                  onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, selected: e.target.checked } : s))}
+                                  className="rounded"/>
+                              </td>
+                              <td className="px-3 py-2 font-medium text-slate-700">{sec.streamer}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={sec.editName}
+                                  onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, editName: e.target.value } : s))}
+                                  className="border border-slate-200 rounded px-2 py-0.5 w-28 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center text-slate-500">{sec.rows.length}</td>
+                              <td className="px-3 py-2 text-center text-slate-400 whitespace-nowrap">{dateRange}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Data saves to Creator Performance (EOD) tab. Existing entries for the same date+streamer+site are overwritten.</p>
+                </div>
+              )}
+
+              {/* STEP 2 — Campaign Mode: Column mapping + preview */}
+              {importStep === 2 && importMode === 'campaign' && (() => {
+                const campRequiredFields = ['date','site','streamer'];
+                const campAllFields = ['date','site','streamer','spend','reg','dep','type','link'];
+                const dupCheck = (e) => data.some(d =>
+                  d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.type === e.type
+                );
+                const dupCount = campPreview.filter(dupCheck).length;
+                const newCount = campPreview.length - dupCount;
+                return (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Column Mapping</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {campAllFields.map(field => (
+                          <div key={field}>
+                            <label className={`text-xs font-semibold uppercase tracking-wide ${
+                              campRequiredFields.includes(field) ? 'text-indigo-600' : 'text-slate-400'
+                            }`}>
+                              {field} {campRequiredFields.includes(field) && <span className="text-red-400">*</span>}
+                            </label>
+                            <select
+                              value={campMapping[field] ?? ''}
+                              onChange={e => {
+                                const updated = { ...campMapping, [field]: e.target.value };
+                                setCampMapping(updated);
+                                setCampPreview(buildCampaignPreview(campRawRows, updated));
+                              }}
+                              className="mt-1 w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            >
+                              <option value="">— skip —</option>
+                              {campHeaders.map((h, idx) => (
+                                <option key={idx} value={String(idx)}>{h || `Column ${idx+1}`}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-3 text-xs">
+                      <span className="bg-emerald-50 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg">{newCount} new rows</span>
+                      {dupCount > 0 && <span className="bg-amber-50 text-amber-700 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1"><AlertTriangle size={12}/> {dupCount} duplicates</span>}
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preview ({campPreview.length} rows)</h3>
+                      <div className="overflow-x-auto max-h-48 rounded-lg border border-slate-200">
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-50 sticky top-0">
+                            <tr>
+                              {['date','site','streamer','spend','reg','dep','type'].map(f => (
+                                <th key={f} className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{f}</th>
+                              ))}
+                              <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {campPreview.map((row, i) => {
+                              const dup = dupCheck(row);
+                              return (
+                                <tr key={i} className={dup ? 'bg-amber-50' : 'hover:bg-slate-50'}>
+                                  <td className="px-3 py-1.5 whitespace-nowrap">{row.date}</td>
+                                  <td className="px-3 py-1.5">{row.site}</td>
+                                  <td className="px-3 py-1.5">{row.streamer}</td>
+                                  <td className="px-3 py-1.5 text-right">{row.spend?.toLocaleString()}</td>
+                                  <td className="px-3 py-1.5 text-right">{row.reg}</td>
+                                  <td className="px-3 py-1.5 text-right">{row.dep?.toLocaleString()}</td>
+                                  <td className="px-3 py-1.5">{row.type}</td>
+                                  <td className="px-3 py-1.5 text-center">
+                                    {dup ? <span className="text-amber-600 font-semibold">Duplicate</span> : <span className="text-emerald-600 font-semibold">New</span>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* STEP 3 — Result */}
+              {importStep === 3 && importResult && (
+                <div className="text-center py-10">
+                  <CheckCircle size={52} className="mx-auto text-emerald-500 mb-4"/>
+                  <h3 className="text-lg font-bold text-slate-800 mb-2">
+                    {importResult.mode === 'eod' ? 'EOD Data Imported!' : 'Campaign Data Imported!'}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    <span className="font-bold text-emerald-600">{importResult.imported} {importResult.mode === 'eod' ? 'day-entries' : 'rows'}</span> saved successfully.
+                    {importResult.skipped > 0 && <> <span className="font-bold text-amber-600">{importResult.skipped} duplicates</span> skipped.</>}
+                  </p>
+                  {importResult.mode === 'eod' && (
+                    <p className="text-xs text-slate-400 mt-2">View results in the Creator Performance tab.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center gap-3">
+              {importStep === 1 && (
+                <>
+                  <span className="text-xs text-slate-400">Supports .csv and .tsv files</span>
+                  <button onClick={closeImportModal} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">Cancel</button>
+                </>
+              )}
+              {importStep === 2 && importMode === 'eod' && (
+                <>
+                  <button onClick={() => setImportStep(1)} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">← Back</button>
+                  <button
+                    onClick={handleEODImport}
+                    disabled={!eodSite || eodSections.every(s => !s.selected)}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-lg text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Upload size={14}/> Import EOD Data ({eodSections.filter(s=>s.selected).reduce((a,s)=>a+s.rows.length,0)} entries)
+                  </button>
+                </>
+              )}
+              {importStep === 2 && importMode === 'campaign' && (() => {
+                const campRequiredFields = ['date','site','streamer'];
+                const dupCount = campPreview.filter(e => data.some(d =>
+                  d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.type === e.type
+                )).length;
+                const missingRequired = campRequiredFields.some(f => !campMapping[f]);
+                return (
+                  <>
+                    <button onClick={() => setImportStep(1)} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">← Back</button>
+                    <div className="flex gap-2">
+                      {dupCount > 0 && (
+                        <button
+                          onClick={() => handleCampaignImport(true)}
+                          disabled={missingRequired}
+                          className="flex items-center gap-1.5 border border-amber-400 text-amber-700 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <AlertTriangle size={14}/> Skip Duplicates ({campPreview.length - dupCount})
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleCampaignImport(false)}
+                        disabled={missingRequired || campPreview.length === 0}
+                        className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Upload size={14}/> Import All ({campPreview.length})
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+              {importStep === 3 && (
+                <>
+                  <span/>
+                  <button onClick={closeImportModal} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg text-sm transition-colors">Done</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADS REPORT EDIT MODAL */}
       {showAdsModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowAdsModal(false)}>
@@ -2528,8 +3136,17 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     (selectedSite === 'All' || d.site === selectedSite)
   );
 
-  // Get dates where this creator has entries
-  const creatorDates = [...new Set(creatorEntries.map(d => d.date))].sort();
+  // Get dates from campaign entries AND from creatorPerfData (so EOD-only days show up too)
+  const perfDates = Object.keys(creatorPerfData)
+    .filter(key => {
+      const [date, streamer, site] = key.split('|');
+      return streamer === selectedStreamer &&
+        date >= startDate && date <= endDate &&
+        (selectedSite === 'All' || site === selectedSite);
+    })
+    .map(key => key.split('|')[0]);
+
+  const creatorDates = [...new Set([...creatorEntries.map(d => d.date), ...perfDates])].sort();
 
   // Get no-stream keys for this streamer in the selected site + date range
   const noStreamRows = Object.keys(noStreamData)
@@ -2550,7 +3167,14 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     const totalSpend = dayEntries.reduce((s, e) => s + e.spend, 0);
     const totalDep = dayEntries.reduce((s, e) => s + e.dep, 0);
     const totalReg = dayEntries.reduce((s, e) => s + e.reg, 0);
-    const siteName = dayEntries[0]?.site || '';
+    // Use site from campaign entry if available, otherwise find from creatorPerfData
+    let siteName = dayEntries[0]?.site || '';
+    if (!siteName && selectedSite !== 'All') siteName = selectedSite;
+    if (!siteName) {
+      // Find the site from creatorPerfData key for this date+streamer
+      const perfKey = Object.keys(creatorPerfData).find(k => k.startsWith(`${date}|${selectedStreamer}|`));
+      if (perfKey) siteName = perfKey.split('|')[2];
+    }
     const key = `${date}|${selectedStreamer}|${siteName}`;
     const perf = creatorPerfData[key] || { ggr: 0, bonus: 0, ngr: 0, activePl: 0, validTurnover: 0, totalWithdrawal: 0 };
     const efficacyRate = totalSpend > 0 ? (perf.ngr / totalSpend) * 100 : null;
