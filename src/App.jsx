@@ -2284,7 +2284,7 @@ export default function App() {
                 reportSubTab === 'creator' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'
               }`}
             >
-              <Activity size={13}/> EOD Creator
+              <Activity size={13}/> Creator Report
             </button>
           </div>
         </div>
