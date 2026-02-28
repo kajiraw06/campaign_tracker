@@ -72,3 +72,10 @@
 .dark .recharts-cartesian-grid line { stroke: #2a3045 !important; }
 .dark .recharts-text { fill: #64748b !important; }
 
+/* Scrollbars */
+.dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+.dark ::-webkit-scrollbar-track { background: #0e1117; }
+.dark ::-webkit-scrollbar-thumb { background: #2a3045; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3a4460; }
+.dark { scrollbar-color: #2a3045 #0e1117; scrollbar-width: thin; }
+

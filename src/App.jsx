@@ -991,9 +991,15 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
         className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-200 text-xs font-medium text-slate-700 hover:border-indigo-400 transition-colors"
       >
         <Calendar size={14} className="text-slate-400" />
-        <span className="font-semibold text-indigo-700">{fmt(startDate)}</span>
-        <span className="text-slate-300">–</span>
-        <span className="font-semibold text-indigo-700">{fmt(endDate)}</span>
+        {startDate && endDate ? (
+          <>
+            <span className="font-semibold text-indigo-700">{fmt(startDate)}</span>
+            <span className="text-slate-300">–</span>
+            <span className="font-semibold text-indigo-700">{fmt(endDate)}</span>
+          </>
+        ) : (
+          <span className="text-slate-400 italic">Select date range…</span>
+        )}
       </button>
 
       {open && (
@@ -1724,20 +1730,21 @@ export default function App() {
   const [filterSite, setFilterSite] = useState('All');
   const [filterStreamer, setFilterStreamer] = useState('All');
   const [filterType, setFilterType] = useState('All');
-  const [startDate, setStartDate] = useState(minDate);
-  const [endDate, setEndDate] = useState(maxDate);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
-  // Auto-update date range when data is imported (covers both campaign and EOD CSVs)
+  // Auto-expand date range only when user has already selected dates and new imported data goes beyond
   useEffect(() => {
-    if (minDate && (!startDate || minDate < startDate)) setStartDate(minDate);
+    if (minDate && startDate && minDate < startDate) setStartDate(minDate);
   }, [minDate]);
 
   useEffect(() => {
-    if (maxDate && (!endDate || maxDate > endDate)) setEndDate(maxDate);
+    if (maxDate && endDate && maxDate > endDate) setEndDate(maxDate);
   }, [maxDate]);
 
   // --- DERIVED METRICS ---
   const filteredData = useMemo(() => {
+    if (!startDate || !endDate) return [];
     return data.filter(item => {
       if (item.site === 'PP') return false;
       const siteMatch = filterSite === 'All' || item.site === filterSite;
@@ -1759,6 +1766,7 @@ export default function App() {
 
   // Global NGR from creatorPerfData within date range + matching filters
   const globalCreatorNGR = useMemo(() => {
+    if (!startDate || !endDate) return 0;
     return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
       const [date, streamer, site] = key.split('|');
       if (startDate && date < startDate) return sum;
@@ -1770,6 +1778,7 @@ export default function App() {
   }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
   const globalCreatorDep = useMemo(() => {
+    if (!startDate || !endDate) return 0;
     return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
       const [date, streamer, site] = key.split('|');
       if (startDate && date < startDate) return sum;
@@ -2047,7 +2056,21 @@ export default function App() {
         </div>
       </div>
 
-      {activeView === 'dashboard' && (
+      {(!startDate || !endDate) && (
+        <div className="max-w-7xl mx-auto p-4 md:p-8">
+          <div className="flex flex-col items-center justify-center gap-4 py-24 bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+              <Calendar size={28} className="text-indigo-500" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Select a Date Range</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm">
+              Use the <span className="font-semibold text-indigo-600 dark:text-indigo-400">date picker</span> in the top-right to choose a start and end date before viewing any data.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {startDate && endDate && activeView === 'dashboard' && (
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
@@ -2243,7 +2266,7 @@ export default function App() {
       </div>
       )}
 
-      {activeView === 'report' && (
+      {startDate && endDate && activeView === 'report' && (
         <div className="max-w-7xl mx-auto px-4 pt-2 md:px-8">
           {/* Sub-tab bar */}
           <div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-fit mb-6">
@@ -3268,7 +3291,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     return 'text-red-500 font-semibold';
   };
 
-  const siteColors = { WFL: 'bg-blue-100 text-blue-700', RLM: 'bg-purple-100 text-purple-700', COW: 'bg-teal-100 text-teal-700', T2B: 'bg-rose-100 text-rose-700' };
+  const siteColors = { WFL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', RLM: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', COW: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300', T2B: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' };
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
@@ -3353,11 +3376,11 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-          <span className="text-lg font-bold text-slate-800 uppercase tracking-wide">{selectedStreamer}</span>
-          <span className="text-sm text-slate-400 font-medium">: End of Day Performance</span>
-          <div className="text-xs text-slate-400 ml-auto">{rows.length} day{rows.length !== 1 ? 's' : ''}</div>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center gap-3">
+          <span className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide">{selectedStreamer}</span>
+          <span className="text-sm text-slate-400 dark:text-slate-500 font-medium">: End of Day Performance</span>
+          <div className="text-xs text-slate-400 dark:text-slate-500 ml-auto">{rows.length} day{rows.length !== 1 ? 's' : ''}</div>
         </div>
         <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-xs">
@@ -3378,34 +3401,34 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                 <th className="px-2 py-2 text-center font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-4 py-10 text-center text-slate-400 text-sm">
-                    No data for <strong>{selectedStreamer}</strong> in the selected date range. Use <span className="text-amber-600 font-semibold">Mark No Stream</span> to record days with no activity.
+                  <td colSpan={13} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
+                    No data for <strong>{selectedStreamer}</strong> in the selected date range. Use <span className="text-amber-600 dark:text-amber-400 font-semibold">Mark No Stream</span> to record days with no activity.
                   </td>
                 </tr>
               )}
               {rows.map((row, idx) => (
                 <React.Fragment key={idx}>
                   {row.noStream ? (
-                    <tr className="bg-slate-100/80 text-slate-400 italic">
-                      <td className="px-2 py-2 font-medium text-slate-500 whitespace-nowrap">{fmtDate(row.date)}</td>
+                    <tr className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 italic">
+                      <td className="px-2 py-2 font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">{fmtDate(row.date)}</td>
                       <td className="px-2 py-2">
                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
                       </td>
                       <td colSpan={9} className="px-2 py-2 text-center">
-                        <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-semibold tracking-wider">
-                          <X size={11} className="text-slate-400"/> NO STREAM
+                        <span className="inline-flex items-center gap-1 text-slate-400 dark:text-slate-500 text-xs font-semibold tracking-wider">
+                          <X size={11} className="text-slate-400 dark:text-slate-500"/> NO STREAM
                         </span>
                       </td>
                       <td className="px-2 py-2 text-center">
-                        <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-500 border border-slate-300">NO STREAM</span>
+                        <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600">NO STREAM</span>
                       </td>
                       <td className="px-2 py-2 text-center">
                         <button
                           onClick={() => onUnmarkNoStream(row.key)}
-                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Remove no-stream marker"
                         >
                           <Trash2 size={12}/>
@@ -3414,26 +3437,26 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                     </tr>
                   ) : (
                   <>
-                  <tr className={`hover:bg-green-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                    <td className="px-2 py-2 font-medium text-slate-700 whitespace-nowrap">{fmtDate(row.date)}</td>
+                  <tr className={`hover:bg-green-50/40 dark:hover:bg-green-900/20 transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-800/20'}`}>
+                    <td className="px-2 py-2 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">{fmtDate(row.date)}</td>
                     <td className="px-2 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
                     </td>
-                    <td className="px-2 py-2 text-right text-slate-600">{row.totalReg}</td>
-                    <td className="px-2 py-2 text-right text-slate-600">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300">—</span>}</td>
-                    <td className="px-2 py-2 text-right text-slate-600">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.totalReg}</td>
+                    <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-red-500 font-medium">{formatPHP(row.totalSpend)}</td>
                     <td className="px-2 py-2 text-right text-emerald-600 font-medium">{formatPHP(row.totalDep)}</td>
-                    <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300">—</span>}</td>
-                    <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
+                    <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                    <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600 dark:text-slate-400' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
                     <td className="px-2 py-2 text-center">
                       {(() => {
                         const s = row.status != null ? row.status : (idx === lastEntryIdx ? 'Pending' : 'Success');
-                        const cls = s === 'Success' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                          : s === 'Failed' ? 'bg-red-100 text-red-600 border-red-200'
-                          : 'bg-amber-100 text-amber-700 border-amber-200';
+                        const cls = s === 'Success' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                          : s === 'Failed' ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
+                          : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700';
                         return <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${cls}`}>{s.toUpperCase()}</span>;
                       })()}
                     </td>
@@ -3442,7 +3465,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       {/* Edit GGR/Bonus/NGR */}
                       <button
                         onClick={() => onEdit(row.date, selectedStreamer, row.siteName)}
-                        className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                        className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
                         title="Edit GGR / Bonus / NGR"
                       >
                         <Edit2 size={12}/>
@@ -3450,7 +3473,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       {/* Delete all entries for this day */}
                       <button
                         onClick={() => onDeleteDay(row.dayEntries)}
-                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                         title="Delete all entries for this day"
                       >
                         <Trash2 size={12}/>
@@ -3460,12 +3483,12 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                   </tr>
                   {/* Inline entries sub-row */}
                   {expandedRow === row.date && (
-                    <tr className="bg-indigo-50/60">
+                    <tr className="bg-indigo-50/60 dark:bg-indigo-900/15">
                       <td colSpan={13} className="px-6 py-3">
-                        <div className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
+                        <div className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-slate-500 border-b border-indigo-100">
+                            <tr className="text-slate-500 dark:text-slate-400 border-b border-indigo-100 dark:border-indigo-800">
                               <th className="py-1 text-left font-semibold">Type</th>
                               <th className="py-1 text-right font-semibold">Spend</th>
                               <th className="py-1 text-right font-semibold">Reg</th>
@@ -3475,22 +3498,22 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                           </thead>
                           <tbody>
                             {row.dayEntries.map((entry, ei) => (
-                              <tr key={ei} className="border-b border-indigo-50 last:border-0">
-                                <td className="py-1.5 text-slate-600">{entry.type}</td>
+                              <tr key={ei} className="border-b border-indigo-50 dark:border-indigo-900/40 last:border-0">
+                                <td className="py-1.5 text-slate-600 dark:text-slate-400">{entry.type}</td>
                                 <td className="py-1.5 text-right text-red-500">{formatPHP(entry.spend)}</td>
-                                <td className="py-1.5 text-right text-slate-600">{entry.reg}</td>
+                                <td className="py-1.5 text-right text-slate-600 dark:text-slate-400">{entry.reg}</td>
                                 <td className="py-1.5 text-right text-emerald-600">{formatPHP(entry.dep)}</td>
                                 <td className="py-1.5 text-center flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => onEditEntry(entry)}
-                                    className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                                    className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded transition-colors"
                                     title="Edit entry"
                                   >
                                     <Edit2 size={11}/>
                                   </button>
                                   <button
                                     onClick={() => onDeleteEntry(entry)}
-                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Delete entry"
                                   >
                                     <Trash2 size={11}/>
@@ -3502,7 +3525,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                         </table>
                         <button
                           onClick={() => onAddEntry(selectedStreamer, row.siteName)}
-                          className="mt-2 flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 font-semibold transition-colors"
+                          className="mt-2 flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold transition-colors"
                         >
                           <Plus size={11}/> Add entry for this day
                         </button>
@@ -3516,7 +3539,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
             </tbody>
             {rows.length > 0 && (
               <tfoot>
-                <tr className="bg-green-900 text-white font-bold text-sm">
+                <tr className="bg-green-900 dark:bg-green-950 text-white font-bold text-sm">
                   <td className="px-2 py-2 uppercase tracking-wider" colSpan={2}>{selectedStreamer} Total</td>
                   <td className="px-2 py-2 text-right">{totals.reg}</td>
                   <td className="px-2 py-2 text-right">{totals.activePl ? totals.activePl.toLocaleString() : '—'}</td>
@@ -3538,9 +3561,9 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           </table>
         </div>
         {rows.length > 0 && (
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center gap-1.5">
-            <p className="text-xs text-slate-400">
-              <span className="font-semibold text-indigo-600">Efficacy Rate</span> = NGR ÷ Ad Spend × 100 &nbsp;·&nbsp; Click the edit button per row to enter GGR, Bonus & NGR
+          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1.5">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">Efficacy Rate</span> = NGR ÷ Ad Spend × 100 &nbsp;·&nbsp; Click the edit button per row to enter GGR, Bonus & NGR
             </p>
           </div>
         )}
