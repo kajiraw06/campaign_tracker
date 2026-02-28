@@ -1105,6 +1105,13 @@ export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [reportSubTab, setReportSubTab] = useState('ads');
 
+  // --- DARK MODE ---
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
+
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState(() => {
     try {
@@ -1902,25 +1909,37 @@ export default function App() {
       
       {/* STICKY HEADER WRAPPER */}
       <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3 md:px-8 space-y-3">
+        <div className="max-w-7xl mx-auto px-4 py-2 md:px-8 space-y-2">
           
-          <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-bold text-indigo-900 tracking-tight">Campaign Performance</h1>
-              <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+          <header className="flex flex-row justify-between items-center gap-3">
+            <div className="flex items-center gap-3 flex-nowrap shrink-0">
+              <h1 className="text-xl md:text-2xl font-bold text-indigo-900 tracking-tight whitespace-nowrap">Campaign Performance</h1>
+              <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
                 <Plus size={14} /> Add Entry
               </button>
               {!(activeView === 'report' && reportSubTab === 'creator') && (
-              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
                 <Upload size={14} /> Import CSV
               </button>
               )}
-              <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+              <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
                 <CheckCircle size={14} /> Dedup
               </button>
             </div>
             
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex gap-2 items-center flex-nowrap">
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode(d => !d)}
+                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 transition-colors text-xs font-semibold shadow-sm"
+              >
+                {darkMode
+                  ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                }
+                {darkMode ? 'Light' : 'Dark'}
+              </button>
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
