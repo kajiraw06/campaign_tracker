@@ -874,17 +874,65 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
   };
 
   const applyPreset = (key) => {
-    const today = todayYMD();
-    const yd = new Date(); yd.setDate(yd.getDate()-1);
-    const yesterday = toYMD(yd.getFullYear(), yd.getMonth(), yd.getDate());
-    const nd = (n) => { const s = new Date(); s.setDate(s.getDate()-(n-1)); return toYMD(s.getFullYear(),s.getMonth(),s.getDate()); };
     const tm = new Date();
+    const toYMDd = (d) => toYMD(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = toYMDd(tm);
+    const nd = (n) => { const s = new Date(); s.setDate(s.getDate()-(n-1)); return toYMDd(s); };
+
+    // yesterday
+    const yd = new Date(tm); yd.setDate(tm.getDate()-1);
+    const yesterday = toYMDd(yd);
+
+    // this week Mon–today
+    const twStart = new Date(tm); twStart.setDate(tm.getDate() - ((tm.getDay()+6)%7));
+
+    // last week Mon–Sun
+    const lwEnd = new Date(twStart); lwEnd.setDate(twStart.getDate()-1);
+    const lwStart = new Date(lwEnd); lwStart.setDate(lwEnd.getDate()-6);
+
+    // this month
+    const tmStart = new Date(tm.getFullYear(), tm.getMonth(), 1);
+    const tmEnd   = new Date(tm.getFullYear(), tm.getMonth()+1, 0);
+
+    // last month
+    const lmStart = new Date(tm.getFullYear(), tm.getMonth()-1, 1);
+    const lmEnd   = new Date(tm.getFullYear(), tm.getMonth(), 0);
+
+    // this quarter
+    const q = Math.floor(tm.getMonth()/3);
+    const tqStart = new Date(tm.getFullYear(), q*3, 1);
+    const tqEnd   = new Date(tm.getFullYear(), q*3+3, 0);
+
+    // last quarter
+    const lq = (q - 1 + 4) % 4;
+    const lqYear = q === 0 ? tm.getFullYear()-1 : tm.getFullYear();
+    const lqStart = new Date(lqYear, lq*3, 1);
+    const lqEnd   = new Date(lqYear, lq*3+3, 0);
+
+    // this year
+    const tyStart = new Date(tm.getFullYear(), 0, 1);
+    const tyEnd   = new Date(tm.getFullYear(), 11, 31);
+
+    // last year
+    const lyStart = new Date(tm.getFullYear()-1, 0, 1);
+    const lyEnd   = new Date(tm.getFullYear()-1, 11, 31);
+
     const presets = {
-      today:     [today, today],
-      yesterday: [yesterday, yesterday],
-      thismonth: [toYMD(tm.getFullYear(), tm.getMonth(), 1), toYMD(tm.getFullYear(), tm.getMonth(), new Date(tm.getFullYear(), tm.getMonth()+1, 0).getDate())],
-      last7:     [nd(7), today],
-      last30:    [nd(30), today],
+      today:        [today, today],
+      yesterday:    [yesterday, yesterday],
+      thisweek:     [toYMDd(twStart), today],
+      lastweek:     [toYMDd(lwStart), toYMDd(lwEnd)],
+      thismonth:    [toYMDd(tmStart), toYMDd(tmEnd)],
+      lastmonth:    [toYMDd(lmStart), toYMDd(lmEnd)],
+      thisquarter:  [toYMDd(tqStart), toYMDd(tqEnd)],
+      lastquarter:  [toYMDd(lqStart), toYMDd(lqEnd)],
+      thisyear:     [toYMDd(tyStart), toYMDd(tyEnd)],
+      lastyear:     [toYMDd(lyStart), toYMDd(lyEnd)],
+      last7:        [nd(7), today],
+      last14:       [nd(14), today],
+      last28:       [nd(28), today],
+      last30:       [nd(30), today],
+      last90:       [nd(90), today],
     };
     if (presets[key]) { onStartChange(presets[key][0]); onEndChange(presets[key][1]); }
     setShowPresets(false); setOpen(false); setStage('start');
@@ -961,16 +1009,36 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
                 Quick select <span className="text-slate-400 text-[10px]">▾</span>
               </button>
               {showPresets && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 w-44 overflow-hidden">
+                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 w-48 overflow-hidden">
+                  {/* --- Relative --- */}
+                  <div className="px-4 pt-1 pb-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Relative</div>
                   {[
-                    { label: 'Today',       key: 'today' },
-                    { label: 'Yesterday',   key: 'yesterday' },
-                    { label: 'This month',  key: 'thismonth' },
-                    { label: 'Last 7 days', key: 'last7' },
-                    { label: 'Last 30 days',key: 'last30' },
+                    { label: 'Today',          key: 'today' },
+                    { label: 'Yesterday',      key: 'yesterday' },
+                    { label: 'This week',      key: 'thisweek' },
+                    { label: 'Last week',      key: 'lastweek' },
+                    { label: 'This month',     key: 'thismonth' },
+                    { label: 'Last month',     key: 'lastmonth' },
+                    { label: 'This quarter',   key: 'thisquarter' },
+                    { label: 'Last quarter',   key: 'lastquarter' },
+                    { label: 'This year',      key: 'thisyear' },
+                    { label: 'Last year',      key: 'lastyear' },
                   ].map(p => (
                     <button key={p.key} onClick={() => applyPreset(p.key)}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                      className="w-full text-left px-4 py-1.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    >{p.label}</button>
+                  ))}
+                  {/* --- Last N days --- */}
+                  <div className="px-4 pt-2 pb-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-100 mt-1">Last N days</div>
+                  {[
+                    { label: 'Last 7 days',   key: 'last7' },
+                    { label: 'Last 14 days',  key: 'last14' },
+                    { label: 'Last 28 days',  key: 'last28' },
+                    { label: 'Last 30 days',  key: 'last30' },
+                    { label: 'Last 90 days',  key: 'last90' },
+                  ].map(p => (
+                    <button key={p.key} onClick={() => applyPreset(p.key)}
+                      className="w-full text-left px-4 py-1.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                     >{p.label}</button>
                   ))}
                 </div>
@@ -2958,6 +3026,17 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
             <div className="bg-white rounded-xl border-2 border-slate-300 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm font-bold">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="px-4 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest w-44"></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-sky-100 text-sky-600 px-1.5 py-0.5 rounded">Reg</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded">Deposits</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">GGR</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">Bonus</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded">NGR</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded">Boosting</span></th>
+                    </tr>
+                  </thead>
                   <tbody>
                     <tr>
                       <td className="px-4 py-3 text-slate-800 w-44 tracking-wider">{label} TOTAL</td>
@@ -2981,6 +3060,17 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
         <div className="bg-indigo-900 text-white rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-sm font-bold">
+              <thead>
+                <tr className="border-b border-indigo-700">
+                  <th className="px-4 py-1.5 text-left text-[10px] font-semibold text-indigo-300 uppercase tracking-widest w-44"></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-sky-900/60 text-sky-300 px-1.5 py-0.5 rounded">Reg</span></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-emerald-900/60 text-emerald-300 px-1.5 py-0.5 rounded">Deposits</span></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded">GGR</span></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-orange-900/60 text-orange-300 px-1.5 py-0.5 rounded">Bonus</span></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-teal-900/60 text-teal-300 px-1.5 py-0.5 rounded">NGR</span></th>
+                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-violet-900/60 text-violet-300 px-1.5 py-0.5 rounded">Boosting</span></th>
+                </tr>
+              </thead>
               <tbody>
                 <tr>
                   <td className="px-4 py-4 w-44 tracking-wider">TOTAL {siteOrder.join(' & ')}</td>
@@ -3023,6 +3113,15 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   }, [siteFilteredStreamers]);
   const [expandedRow, setExpandedRow] = React.useState(null);
   const [noStreamDateInput, setNoStreamDateInput] = React.useState('');
+  const [nsOpen, setNsOpen] = React.useState(false);
+  const nsRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!nsOpen) return;
+    const h = (e) => { if (nsRef.current && !nsRef.current.contains(e.target)) setNsOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [nsOpen]);
 
   // Filter data for the selected creator
   const creatorEntries = data.filter(d =>
@@ -3061,40 +3160,6 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
 
   // Auto-detect no-stream dates: any date between the streamer's first and last entry
   // (within the selected date range) that has no campaign data AND no EOD perf entry.
-  const autoNoStreamRows = React.useMemo(() => {
-    if (creatorDates.length < 2) return [];
-    // Determine the streamer's active window (clamped to the selected date range)
-    const streamerFirst = creatorDates[0];
-    const streamerLast  = creatorDates[creatorDates.length - 1];
-    const winStart = startDate && startDate > streamerFirst ? startDate : streamerFirst;
-    const winEnd   = endDate   && endDate   < streamerLast  ? endDate   : streamerLast;
-
-    // Infer default site for this streamer
-    const defaultSite = selectedSite !== 'All'
-      ? selectedSite
-      : (data.find(d => d.streamer === selectedStreamer)?.site ||
-         Object.keys(creatorPerfData).find(k => k.split('|')[1] === selectedStreamer)?.split('|')[2] || '');
-
-    const existingDates    = new Set(creatorDates);
-    const manualNoStreamDates = new Set(
-      Object.keys(noStreamData)
-        .filter(k => k.split('|')[1] === selectedStreamer)
-        .map(k => k.split('|')[0])
-    );
-
-    const results = [];
-    let cur = new Date(winStart + 'T00:00:00');
-    const last = new Date(winEnd + 'T00:00:00');
-    while (cur <= last) {
-      const d = cur.toISOString().slice(0, 10);
-      if (!existingDates.has(d) && !manualNoStreamDates.has(d)) {
-        results.push({ date: d, siteName: defaultSite, noStream: true, key: null, isAuto: true });
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
-    return results;
-  }, [creatorDates, startDate, endDate, selectedStreamer, selectedSite, data, creatorPerfData, noStreamData]);
-
   // Build per-day rows (include dayEntries for inline editing)
   const entryRows = creatorDates.map(date => {
     const dayEntries = creatorEntries.filter(e => e.date === date);
@@ -3117,8 +3182,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: false };
   });
 
-  // Merge and sort all rows by date (manual no-stream + auto-detected + data rows)
-  const rows = [...entryRows, ...noStreamRows, ...autoNoStreamRows].sort((a, b) => a.date.localeCompare(b.date));
+  // Merge and sort all rows by date (manual no-stream + data rows)
+  const rows = [...entryRows, ...noStreamRows].sort((a, b) => a.date.localeCompare(b.date));
 
   // Totals (exclude no-stream rows)
   const totals = rows.filter(r => !r.noStream).reduce((acc, r) => ({
@@ -3224,27 +3289,47 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
         >
           <Upload size={15}/> Import EOD
         </button>
-        {/* No Stream date picker */}
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={noStreamDateInput}
-            min={startDate}
-            max={endDate}
-            onChange={e => setNoStreamDateInput(e.target.value)}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
-          />
+        {/* No Stream — popover */}
+        <div className="relative" ref={nsRef}>
           <button
-            onClick={() => {
-              if (!noStreamDateInput) return;
-              const site = selectedSite !== 'All' ? selectedSite : (data.find(d => d.streamer === selectedStreamer)?.site || 'WFL');
-              onMarkNoStream(noStreamDateInput, selectedStreamer, site);
-              setNoStreamDateInput('');
-            }}
-            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors whitespace-nowrap"
+            onClick={() => setNsOpen(o => !o)}
+            className={`flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-all border ${nsOpen ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400'}`}
           >
-            <X size={13}/> Mark No Stream
+            <X size={14}/> Mark No Stream
           </button>
+          {nsOpen && (
+            <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-72">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Mark a day as No Stream</p>
+              <p className="text-xs text-slate-400 mb-3 leading-relaxed">Select the date when <span className="font-semibold text-slate-600">{selectedStreamer}</span> did not stream.</p>
+              <input
+                type="date"
+                value={noStreamDateInput}
+                min={startDate}
+                max={endDate}
+                onChange={e => setNoStreamDateInput(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 mb-3"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (!noStreamDateInput) return;
+                    const site = selectedSite !== 'All' ? selectedSite : (data.find(d => d.streamer === selectedStreamer)?.site || 'WFL');
+                    onMarkNoStream(noStreamDateInput, selectedStreamer, site);
+                    setNoStreamDateInput('');
+                    setNsOpen(false);
+                  }}
+                  disabled={!noStreamDateInput}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 rounded-xl transition-colors"
+                >
+                  <X size={13}/> Confirm
+                </button>
+                <button
+                  onClick={() => { setNsOpen(false); setNoStreamDateInput(''); }}
+                  className="px-4 py-2 rounded-xl text-sm text-slate-500 hover:bg-slate-100 transition-colors font-medium"
+                >Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -3255,10 +3340,10 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           <span className="text-sm text-slate-400 font-medium">: End of Day Performance</span>
           <div className="text-xs text-slate-400 ml-auto">{rows.length} day{rows.length !== 1 ? 's' : ''}</div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-green-900 text-white text-xs uppercase tracking-wider">
+              <tr className="bg-green-900 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
                 <th className="px-2 py-2 text-left font-semibold">Day</th>
                 <th className="px-2 py-2 text-left font-semibold">Site</th>
                 <th className="px-2 py-2 text-right font-semibold">Reg</th>
@@ -3293,24 +3378,19 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                       <td colSpan={9} className="px-2 py-2 text-center">
                         <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-semibold tracking-wider">
                           <X size={11} className="text-slate-400"/> NO STREAM
-                          {row.isAuto && <span className="ml-1 text-slate-300 font-normal">(auto)</span>}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-center">
                         <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-500 border border-slate-300">NO STREAM</span>
                       </td>
                       <td className="px-2 py-2 text-center">
-                        {row.isAuto ? (
-                          <span className="text-xs text-slate-300 italic">auto</span>
-                        ) : (
-                          <button
-                            onClick={() => onUnmarkNoStream(row.key)}
-                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                            title="Remove no-stream marker"
-                          >
-                            <Trash2 size={12}/>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => onUnmarkNoStream(row.key)}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Remove no-stream marker"
+                        >
+                          <Trash2 size={12}/>
+                        </button>
                       </td>
                     </tr>
                   ) : (
