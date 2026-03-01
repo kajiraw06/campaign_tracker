@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Brush } from 'recharts';
+import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, VideoOff, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 // Firebase removed — localStorage only mode.
 
 // --- DATA SOURCE ---
@@ -1200,7 +1200,10 @@ export default function App() {
   };
 
   // --- CREATOR SUMMARY (lifted for header cards) ---
-  const [creatorSummary, setCreatorSummary] = useState({ spend: 0, dep: 0, ngr: 0, efficacyRate: null });
+  const [creatorSummary, setCreatorSummary] = useState({ spend: 0, dep: 0, reg: 0, ggr: 0, bonus: 0, ngr: 0, efficacyRate: null, streams: 0, reels: 0 });
+
+  // Chart series visibility toggles
+  const [hiddenSeries, setHiddenSeries] = useState({ spend: false, dep: false, ggr: false, bonus: false, ngr: false });
 
   // --- CREATOR PERF MODAL STATE ---
   const [showCreatorPerfModal, setShowCreatorPerfModal] = useState(false);
@@ -1789,6 +1792,42 @@ export default function App() {
     }, 0);
   }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
+  const globalCreatorReg = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
+      const [date, streamer, site] = key.split('|');
+      if (startDate && date < startDate) return sum;
+      if (endDate && date > endDate) return sum;
+      if (filterSite !== 'All' && site !== filterSite) return sum;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return sum;
+      return sum + (parseFloat(val.reg) || 0);
+    }, 0);
+  }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
+
+  const globalCreatorGGR = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
+      const [date, streamer, site] = key.split('|');
+      if (startDate && date < startDate) return sum;
+      if (endDate && date > endDate) return sum;
+      if (filterSite !== 'All' && site !== filterSite) return sum;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return sum;
+      return sum + (parseFloat(val.ggr) || 0);
+    }, 0);
+  }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
+
+  const globalCreatorBonus = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return Object.entries(creatorPerfData).reduce((sum, [key, val]) => {
+      const [date, streamer, site] = key.split('|');
+      if (startDate && date < startDate) return sum;
+      if (endDate && date > endDate) return sum;
+      if (filterSite !== 'All' && site !== filterSite) return sum;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return sum;
+      return sum + (parseFloat(val.bonus) || 0);
+    }, 0);
+  }, [creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
+
   const globalEfficacyRate = totals.spend > 0 ? (globalCreatorNGR / totals.spend) * 100 : null;
 
   // Group by Streamer for Summary Table — merged with adsReportData
@@ -1859,25 +1898,25 @@ export default function App() {
   const chartData = useMemo(() => {
     const daily = {};
     filteredData.forEach(item => {
-      if (!daily[item.date]) daily[item.date] = { date: item.date, spend: 0, dep: 0 };
+      if (!daily[item.date]) daily[item.date] = { date: item.date, spend: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0 };
       daily[item.date].spend += item.spend;
       daily[item.date].dep += item.dep;
     });
-    // For sites with no campaign rawData (e.g. T2B), pull deposits from creatorPerfData
+    // Merge GGR / Bonus / NGR / dep from creatorPerfData
     Object.entries(creatorPerfData).forEach(([key, val]) => {
-      const [date, , site] = key.split('|');
+      const [date, streamer, site] = key.split('|');
       if (filterSite !== 'All' && site !== filterSite) return;
+      if (filterStreamer !== 'All' && streamer !== filterStreamer) return;
       if (date < startDate || date > endDate) return;
-      if (!daily[date]) daily[date] = { date, spend: 0, dep: 0 };
-      // Only add dep from creatorPerfData if filteredData had no campaign entries for this date+site
-      // (avoid double-counting for WFL/RLM which already have dep in rawData)
+      if (!daily[date]) daily[date] = { date, spend: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0 };
       const hasRawEntry = filteredData.some(d => d.date === date);
-      if (!hasRawEntry) {
-        daily[date].dep += parseFloat(val.dep) || 0;
-      }
+      if (!hasRawEntry) daily[date].dep += parseFloat(val.dep) || 0;
+      daily[date].ggr   += parseFloat(val.ggr)   || 0;
+      daily[date].bonus += parseFloat(val.bonus)  || 0;
+      daily[date].ngr   += parseFloat(val.ngr)    || 0;
     });
     return Object.values(daily).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [filteredData, creatorPerfData, startDate, endDate, filterSite]);
+  }, [filteredData, creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
   // Format currency
   const formatPHP = (val) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
@@ -2014,28 +2053,69 @@ export default function App() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className={`grid gap-3 ${(activeView === 'report' && reportSubTab === 'creator') ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7'}`}>
             {(() => {
               const isCreator = activeView === 'report' && reportSubTab === 'creator';
               const displaySpend = isCreator ? creatorSummary.spend : totals.spend;
+              const displayReg   = isCreator ? creatorSummary.reg   : globalCreatorReg;
               const displayDep   = isCreator ? creatorSummary.dep   : globalCreatorDep;
+              const displayGGR   = isCreator ? creatorSummary.ggr   : globalCreatorGGR;
+              const displayBonus = isCreator ? creatorSummary.bonus : globalCreatorBonus;
               const displayNGR   = isCreator ? creatorSummary.ngr   : globalCreatorNGR;
               const displayEff   = isCreator
                 ? (creatorSummary.efficacyRate !== null && creatorSummary.efficacyRate !== undefined ? creatorSummary.efficacyRate : null)
                 : globalEfficacyRate;
               return (<>
-            <MetricCard
+            {!isCreator && <MetricCard
               title="Total Ad Spend"
               value={formatPHP(displaySpend)}
               icon={<ArrowDownRight className="text-red-500" size={16} />}
               color="border-l-4 border-red-500"
-            />
+            />}
+            {isCreator && <MetricCard
+              title="Total Register"
+              value={(creatorSummary.reg || 0).toLocaleString()}
+              icon={<ArrowUpRight className="text-sky-500" size={16} />}
+              color="border-l-4 border-sky-500"
+            />}
+            {!isCreator && <MetricCard
+              title="Total Register"
+              value={(displayReg || 0).toLocaleString()}
+              icon={<ArrowUpRight className="text-sky-500" size={16} />}
+              color="border-l-4 border-sky-500"
+            />}
             <MetricCard
               title="Total Deposit"
               value={formatPHP(displayDep)}
               icon={<ArrowUpRight className="text-emerald-500" size={16} />}
               color="border-l-4 border-emerald-500"
             />
+            {isCreator && <MetricCard
+              title="Total GGR"
+              value={formatPHP(creatorSummary.ggr || 0)}
+              icon={<DollarSign className={(creatorSummary.ggr || 0) >= 0 ? "text-amber-500" : "text-red-500"} size={16} />}
+              color={(creatorSummary.ggr || 0) >= 0 ? "border-l-4 border-amber-400" : "border-l-4 border-red-500"}
+              valueColor={(creatorSummary.ggr || 0) >= 0 ? '' : 'text-red-500'}
+            />}
+            {!isCreator && <MetricCard
+              title="Total GGR"
+              value={formatPHP(displayGGR)}
+              icon={<DollarSign className={displayGGR >= 0 ? "text-amber-500" : "text-red-500"} size={16} />}
+              color={displayGGR >= 0 ? "border-l-4 border-amber-400" : "border-l-4 border-red-500"}
+              valueColor={displayGGR >= 0 ? '' : 'text-red-500'}
+            />}
+            {isCreator && <MetricCard
+              title="Total Bonus"
+              value={formatPHP(creatorSummary.bonus || 0)}
+              icon={<DollarSign className="text-purple-500" size={16} />}
+              color="border-l-4 border-purple-500"
+            />}
+            {!isCreator && <MetricCard
+              title="Total Bonus"
+              value={formatPHP(displayBonus)}
+              icon={<DollarSign className="text-purple-500" size={16} />}
+              color="border-l-4 border-purple-500"
+            />}
             <MetricCard
               title="Total NGR"
               value={formatPHP(displayNGR)}
@@ -2043,16 +2123,30 @@ export default function App() {
               color={displayNGR >= 0 ? "border-l-4 border-indigo-500" : "border-l-4 border-red-500"}
               valueColor={displayNGR >= 0 ? 'text-emerald-600' : 'text-red-500'}
             />
-            <MetricCard
+            {!isCreator && <MetricCard
               title="Efficacy Rate"
               value={displayEff !== null ? `${displayEff.toFixed(2)}%` : 'N/A'}
               icon={<TrendingUp className={displayEff !== null && displayEff >= 100 ? "text-emerald-600" : "text-amber-500"} size={16} />}
               subValue="NGR ÷ Ad Spend"
               color={displayEff !== null && displayEff >= 100 ? "border-l-4 border-emerald-600" : "border-l-4 border-amber-400"}
-            />
+            />}
               </>);
             })()}
           </div>
+          {(activeView === 'report' && reportSubTab === 'creator') && (
+            <div className="flex items-center justify-center gap-4 pt-1">
+              <div className="flex items-center gap-2 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg px-3 py-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">Total Streams</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{creatorSummary.streams ?? 0}</span>
+              </div>
+              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg px-3 py-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-500"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg>
+                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total Reels</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{creatorSummary.reels ?? 0}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2073,35 +2167,127 @@ export default function App() {
       {startDate && endDate && activeView === 'dashboard' && (
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-            <Calendar size={20} className="text-slate-400"/>
-            Daily Financial Trend
-          </h3>
-          <div className="h-80 w-full">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          {/* ── Chart header ── */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <Calendar size={20} className="text-slate-400"/>
+              Daily Financial Trend
+            </h3>
+            {/* Legend toggles */}
+            <div className="flex flex-wrap gap-2">
+              {[{key:'spend',label:'Ad Spend',color:'#ef4444'},{key:'dep',label:'Deposits',color:'#10b981'},{key:'ggr',label:'GGR',color:'#f59e0b'},{key:'bonus',label:'Bonus',color:'#a855f7'},{key:'ngr',label:'NGR',color:'#6366f1'}].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setHiddenSeries(prev => ({ ...prev, [s.key]: !prev[s.key] }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                    hiddenSeries[s.key]
+                      ? 'bg-slate-100 border-slate-200 text-slate-400 line-through'
+                      : 'bg-white border-slate-300 text-slate-700'
+                  }`}
+                  style={!hiddenSeries[s.key] ? { borderColor: s.color, color: s.color } : {}}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: hiddenSeries[s.key] ? '#cbd5e1' : s.color }} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(str) => {
-                    const d = new Date(str);
-                    return `${d.getMonth()+1}/${d.getDate()}`;
-                  }} 
-                  stroke="#64748b"
-                  tick={{fontSize: 12}}
+              <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
+                <defs>
+                  <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.18}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradDep" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.18}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradGGR" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradBonus" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradNGR" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.18}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={str => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; }}
+                  stroke="#94a3b8" tick={{ fontSize: 11 }}
+                  tickLine={false} axisLine={false}
                 />
-                <YAxis stroke="#64748b" tick={{fontSize: 12}} tickFormatter={(val) => `₱${val/1000}k`}/>
-                <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                  formatter={(value) => formatPHP(value)}
+                <YAxis
+                  stroke="#94a3b8" tick={{ fontSize: 11 }}
+                  tickLine={false} axisLine={false}
+                  tickFormatter={val => val === 0 ? '0' : `₱${(val/1000).toFixed(0)}k`}
+                  width={58}
                 />
-                <Legend />
-                <Line type="monotone" dataKey="spend" name="Ad Spend" stroke="#ef4444" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="dep" name="Deposits" stroke="#10b981" strokeWidth={2} dot={false} />
-              </LineChart>
+
+                {/* Zero baseline */}
+                <ReferenceLine y={0} stroke="#64748b" strokeDasharray="4 3" strokeWidth={1.5}
+                  label={{ value: '0', position: 'insideTopLeft', fontSize: 10, fill: '#94a3b8' }}
+                />
+
+                {/* Tooltip */}
+                <Tooltip
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 8px 24px -4px rgb(0 0 0 / 0.12)', fontSize: 12, padding: '10px 14px' }}
+                  labelFormatter={str => { const d = new Date(str); return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }); }}
+                  formatter={(value, name) => [formatPHP(value), name]}
+                />
+
+                {/* Brush zoom */}
+                <Brush dataKey="date" height={24} stroke="#e2e8f0" fill="#f8fafc" travellerWidth={6}
+                  tickFormatter={str => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; }}
+                  y={340}
+                />
+
+                {/* Areas (filled) */}
+                {!hiddenSeries.spend && <Area type="monotone" dataKey="spend" name="Ad Spend" stroke="#ef4444" strokeWidth={2} fill="url(#gradSpend)" dot={{ r: 3, fill: '#ef4444', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.dep   && <Area type="monotone" dataKey="dep"   name="Deposits" stroke="#10b981" strokeWidth={2} fill="url(#gradDep)"   dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ggr   && <Area type="monotone" dataKey="ggr"   name="GGR"      stroke="#f59e0b" strokeWidth={2} fill="url(#gradGGR)"   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.bonus && <Area type="monotone" dataKey="bonus" name="Bonus"    stroke="#a855f7" strokeWidth={2} fill="url(#gradBonus)" dot={{ r: 3, fill: '#a855f7', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ngr   && <Area type="monotone" dataKey="ngr"   name="NGR"      stroke="#6366f1" strokeWidth={2} fill="url(#gradNGR)"   dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Peak value summary */}
+          {chartData.length > 0 && (() => {
+            const peaks = {
+              dep:   chartData.reduce((p, c) => c.dep   > p.dep   ? c : p, chartData[0]),
+              ggr:   chartData.reduce((p, c) => c.ggr   > p.ggr   ? c : p, chartData[0]),
+              ngr:   chartData.reduce((p, c) => c.ngr   > p.ngr   ? c : p, chartData[0]),
+              spend: chartData.reduce((p, c) => c.spend > p.spend ? c : p, chartData[0]),
+            };
+            const fmt = d => new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+            return (
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mr-1 self-center">Peaks</span>
+                {[{label:'Best Deposits',val:peaks.dep.dep,date:peaks.dep.date,color:'text-emerald-600'},
+                  {label:'Best GGR',val:peaks.ggr.ggr,date:peaks.ggr.date,color:'text-amber-600'},
+                  {label:'Best NGR',val:peaks.ngr.ngr,date:peaks.ngr.date,color:'text-indigo-600'},
+                  {label:'Highest Spend',val:peaks.spend.spend,date:peaks.spend.date,color:'text-red-500'}].map(p => (
+                  <div key={p.label} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1">
+                    <span className="text-[10px] text-slate-400 font-medium">{p.label}</span>
+                    <span className={`text-[11px] font-bold ${p.color}`}>{formatPHP(p.val)}</span>
+                    <span className="text-[10px] text-slate-400">on {fmt(p.date)}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -3155,6 +3341,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   }, [siteFilteredStreamers]);
   const [expandedRow, setExpandedRow] = React.useState(null);
   const [noStreamDateInput, setNoStreamDateInput] = React.useState('');
+  const [noStreamSiteInput, setNoStreamSiteInput] = React.useState(sites[0] || '');
   const [nsOpen, setNsOpen] = React.useState(false);
   const nsRef = React.useRef(null);
 
@@ -3173,6 +3360,10 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     (selectedSite === 'All' || d.site === selectedSite)
   );
 
+  // Stream / Reels counts — derived directly from the already-filtered creatorEntries
+  const totalStreams = creatorEntries.filter(d => d.type === 'Live').length;
+  const totalReels   = creatorEntries.filter(d => d.type === 'Reels').length;
+
   // Get dates from campaign entries AND from creatorPerfData (so EOD-only days show up too)
   const perfDates = Object.keys(creatorPerfData)
     .filter(key => {
@@ -3186,23 +3377,19 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
 
   const creatorDates = [...new Set([...creatorEntries.map(d => d.date), ...perfDates])].sort();
 
-  // Get manually-marked no-stream keys for this streamer in the selected site + date range
-  const noStreamRows = Object.keys(noStreamData)
-    .filter(key => {
+  // Collect all manually-marked no-stream keys for this streamer/date-range/site
+  const noStreamKeySet = new Set(
+    Object.keys(noStreamData).filter(key => {
       const [date, streamer, site] = key.split('|');
       return streamer === selectedStreamer &&
         (!startDate || date >= startDate) &&
         (!endDate   || date <= endDate) &&
         (selectedSite === 'All' || site === selectedSite);
     })
-    .map(key => {
-      const [date, , site] = key.split('|');
-      return { date, siteName: site, noStream: true, key };
-    });
+  );
 
-  // Auto-detect no-stream dates: any date between the streamer's first and last entry
-  // (within the selected date range) that has no campaign data AND no EOD perf entry.
-  // Build per-day rows (include dayEntries for inline editing)
+  // Build per-day rows — flag rows that are also marked no-stream so we can show
+  // the indicator inline without hiding actual performance data.
   const entryRows = creatorDates.map(date => {
     const dayEntries = creatorEntries.filter(e => e.date === date);
     const totalSpend = dayEntries.reduce((s, e) => s + e.spend, 0);
@@ -3221,14 +3408,30 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     const totalReg = (perf.reg != null && perf.reg > 0) ? perf.reg : campaignReg;
     const totalDep = (perf.dep != null && perf.dep > 0) ? perf.dep : campaignDep;
     const efficacyRate = totalSpend > 0 ? (perf.ngr / totalSpend) * 100 : null;
-    return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: false };
+    // noStream=true if any no-stream marker exists for this date (any site)
+    const isNoStream = [...noStreamKeySet].some(k => k.startsWith(`${date}|`));
+    return { date, siteName, totalSpend, totalDep, totalReg, ...perf, efficacyRate, key, dayEntries, noStream: isNoStream, hasData: true };
   });
 
-  // Merge and sort all rows by date (manual no-stream + data rows)
-  const rows = [...entryRows, ...noStreamRows].sort((a, b) => a.date.localeCompare(b.date));
+  // Pure no-stream rows = dates marked no-stream that have NO entry row at all
+  const entryDateSet = new Set(entryRows.map(r => r.date));
+  const pureNoStreamRows = [...noStreamKeySet]
+    .filter(key => {
+      const [date] = key.split('|');
+      return !entryDateSet.has(date);
+    })
+    .reduce((acc, key) => {
+      // deduplicate by date — only one row per date
+      const [date, , site] = key.split('|');
+      if (!acc.seen.has(date)) { acc.seen.add(date); acc.rows.push({ date, siteName: site, noStream: true, hasData: false, key }); }
+      return acc;
+    }, { seen: new Set(), rows: [] }).rows;
 
-  // Totals (exclude no-stream rows)
-  const totals = rows.filter(r => !r.noStream).reduce((acc, r) => ({
+  // Merge and sort all rows by date
+  const rows = [...entryRows, ...pureNoStreamRows].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Totals — include no-stream rows that DO have data (streamer had data even without streaming)
+  const totals = rows.filter(r => r.hasData !== false).reduce((acc, r) => ({
     spend: acc.spend + r.totalSpend,
     dep: acc.dep + r.totalDep,
     reg: acc.reg + r.totalReg,
@@ -3250,24 +3453,27 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
     );
     const allSpend = filtered.reduce((s, e) => s + e.spend, 0);
     const campaignDep = filtered.reduce((s, e) => s + e.dep, 0);
-    let perfDep = 0, perfNGR = 0;
+    let perfDep = 0, perfNGR = 0, perfReg = 0, perfGGR = 0, perfBonus = 0;
     Object.entries(creatorPerfData).forEach(([key, perf]) => {
       const [date] = key.split('|');
       if ((!startDate || date >= startDate) && (!endDate || date <= endDate)) {
-        perfDep  += perf.dep || 0;
-        perfNGR  += perf.ngr || 0;
+        perfDep   += perf.dep   || 0;
+        perfNGR   += perf.ngr   || 0;
+        perfReg   += perf.reg   || 0;
+        perfGGR   += perf.ggr   || 0;
+        perfBonus += perf.bonus || 0;
       }
     });
     const allDep = perfDep > 0 ? perfDep : campaignDep;
     const allNGR = perfNGR;
     const allEfficacy = allSpend > 0 ? (allNGR / allSpend) * 100 : null;
-    return { spend: allSpend, dep: allDep, ngr: allNGR, efficacyRate: allEfficacy };
+    return { spend: allSpend, dep: allDep, reg: perfReg, ggr: perfGGR, bonus: perfBonus, ngr: allNGR, efficacyRate: allEfficacy };
   }, [data, creatorPerfData, startDate, endDate]);
 
   // Lift summary up to header
   React.useEffect(() => {
-    onSummaryChange(allTotals);
-  }, [allTotals.spend, allTotals.dep, allTotals.ngr, allTotals.efficacyRate]);
+    onSummaryChange({ ...allTotals, streams: totalStreams, reels: totalReels });
+  }, [allTotals.spend, allTotals.dep, allTotals.reg, allTotals.ggr, allTotals.bonus, allTotals.ngr, allTotals.efficacyRate, totalStreams, totalReels]);
 
   // Index of the last actual (non-noStream) row for PENDING badge
   const lastEntryIdx = rows.reduce((last, r, i) => (!r.noStream ? i : last), -1);
@@ -3351,11 +3557,23 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                 onChange={e => setNoStreamDateInput(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 mb-3"
               />
+              {selectedSite === 'All' && (
+                <div className="mb-3">
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">Site</label>
+                  <select
+                    value={noStreamSiteInput}
+                    onChange={e => setNoStreamSiteInput(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    {sites.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => {
                     if (!noStreamDateInput) return;
-                    const site = selectedSite !== 'All' ? selectedSite : (data.find(d => d.streamer === selectedStreamer)?.site || 'WFL');
+                    const site = selectedSite !== 'All' ? selectedSite : noStreamSiteInput;
                     onMarkNoStream(noStreamDateInput, selectedStreamer, site);
                     setNoStreamDateInput('');
                     setNsOpen(false);
@@ -3411,78 +3629,70 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
               )}
               {rows.map((row, idx) => (
                 <React.Fragment key={idx}>
-                  {row.noStream ? (
-                    <tr className="bg-slate-100/80 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 italic">
-                      <td className="px-2 py-2 font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">{fmtDate(row.date)}</td>
-                      <td className="px-2 py-2">
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
-                      </td>
-                      <td colSpan={9} className="px-2 py-2 text-center">
-                        <span className="inline-flex items-center gap-1 text-slate-400 dark:text-slate-500 text-xs font-semibold tracking-wider">
-                          <X size={11} className="text-slate-400 dark:text-slate-500"/> NO STREAM
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600">NO STREAM</span>
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        <button
-                          onClick={() => onUnmarkNoStream(row.key)}
-                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Remove no-stream marker"
-                        >
-                          <Trash2 size={12}/>
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
                   <>
+                  {/* ── Unified row — red VideoOff icon before date when no-stream ── */}
                   <tr className={`hover:bg-green-50/40 dark:hover:bg-green-900/20 transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-800/20'}`}>
-                    <td className="px-2 py-2 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">{fmtDate(row.date)}</td>
+                    <td className="px-2 py-2 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {row.noStream && <VideoOff size={13} className="text-red-500 shrink-0" title="No Stream"/>}
+                        {fmtDate(row.date)}
+                      </div>
+                    </td>
                     <td className="px-2 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${siteColors[row.siteName] || 'bg-gray-100 text-gray-600'}`}>{row.siteName}</span>
                     </td>
-                    <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.totalReg}</td>
+                    <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.hasData !== false ? row.totalReg : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
-                    <td className="px-2 py-2 text-right text-red-500 font-medium">{formatPHP(row.totalSpend)}</td>
-                    <td className="px-2 py-2 text-right text-emerald-600 font-medium">{formatPHP(row.totalDep)}</td>
+                    <td className="px-2 py-2 text-right text-red-500 font-medium">{row.hasData !== false ? formatPHP(row.totalSpend) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-emerald-600 font-medium">{row.hasData !== false ? formatPHP(row.totalDep) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600 dark:text-slate-400' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
                     <td className="px-2 py-2 text-center">
-                      {(() => {
+                      {row.hasData !== false ? (() => {
                         const s = row.status != null ? row.status : (idx === lastEntryIdx ? 'Pending' : 'Success');
                         const cls = s === 'Success' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
                           : s === 'Failed' ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
                           : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700';
                         return <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${cls}`}>{s.toUpperCase()}</span>;
-                      })()}
+                      })() : <span className="text-slate-300 dark:text-slate-600">—</span>}
                     </td>
                     <td className="px-2 py-2 text-center">
                       <div className="flex items-center justify-center gap-0.5">
-                      {/* Edit GGR/Bonus/NGR */}
-                      <button
-                        onClick={() => onEdit(row.date, selectedStreamer, row.siteName)}
-                        className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
-                        title="Edit GGR / Bonus / NGR"
-                      >
-                        <Edit2 size={12}/>
-                      </button>
-                      {/* Delete all entries for this day */}
-                      <button
-                        onClick={() => onDeleteDay(row.dayEntries)}
-                        className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                        title="Delete all entries for this day"
-                      >
-                        <Trash2 size={12}/>
-                      </button>
+                      {row.hasData !== false && (
+                        <button
+                          onClick={() => onEdit(row.date, selectedStreamer, row.siteName)}
+                          className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors"
+                          title="Edit GGR / Bonus / NGR"
+                        >
+                          <Edit2 size={12}/>
+                        </button>
+                      )}
+                      {row.noStream && (
+                        <button
+                          onClick={() => [...noStreamKeySet].filter(k => k.startsWith(`${row.date}|`)).forEach(k => onUnmarkNoStream(k))}
+                          className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Remove no-stream marker"
+                        >
+                          <VideoOff size={12}/>
+                        </button>
+                      )}
+                      {row.hasData !== false && (
+                        <button
+                          onClick={() => onDeleteDay(row.dayEntries)}
+                          className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Delete all entries for this day"
+                        >
+                          <Trash2 size={12}/>
+                        </button>
+                      )}
                       </div>
                     </td>
                   </tr>
                   {/* Inline entries sub-row */}
-                  {expandedRow === row.date && (
+                  {expandedRow === row.date && row.hasData !== false && (
                     <tr className="bg-indigo-50/60 dark:bg-indigo-900/15">
                       <td colSpan={13} className="px-6 py-3">
                         <div className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
@@ -3533,7 +3743,6 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                     </tr>
                   )}
                   </>
-                  )}
                 </React.Fragment>
               ))}
             </tbody>
@@ -3561,8 +3770,22 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
           </table>
         </div>
         {rows.length > 0 && (
-          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1.5">
-            <p className="text-xs text-slate-400 dark:text-slate-500">
+          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                </span>
+                Total Streams: <span className="text-slate-700 dark:text-slate-200 font-bold">{totalStreams}</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg>
+                </span>
+                Total Reels: <span className="text-slate-700 dark:text-slate-200 font-bold">{totalReels}</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 ml-auto">
               <span className="font-semibold text-indigo-600 dark:text-indigo-400">Efficacy Rate</span> = NGR ÷ Ad Spend × 100 &nbsp;·&nbsp; Click the edit button per row to enter GGR, Bonus & NGR
             </p>
           </div>
