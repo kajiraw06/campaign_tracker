@@ -1,189 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Brush } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, VideoOff, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
-// Firebase removed — localStorage only mode.
+import { supabase } from './supabase';
+import { useAuth } from './AuthContext';
 
-// --- DATA SOURCE ---
-const rawData = [
-  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/watch/live/?ref=watch_permalink&v=885683144393946"},
-  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/watch/live/?ref=watch_permalink&v=1230456252366739&rdid=PcAgDQaB6eOavtlR"},
-  {"date":"2026-01-23","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1222680836504331/?rdid=pEQm12JfQxwZiGmK#"},
-  {"date":"2026-01-23","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2024003294810360"},
-  {"date":"2026-01-24","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1211344391104087"},
-  {"date":"2026-01-24","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/865761549646384"},
-  {"date":"2026-01-24","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1441004237542434"},
-  {"date":"2026-01-25","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/883670777385663"},
-  {"date":"2026-01-25","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1212566064332187"},
-  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/4171745289806749"},
-  {"date":"2026-01-26","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DEdoCao4m/"},
-  {"date":"2026-01-26","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1609190960365176"},
-  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/3451812401636580"},
-  {"date":"2026-01-26","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/745052444909829"},
-  {"date":"2026-01-26","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1802538730407024"},
-  {"date":"2026-01-26","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2078904466207308"},
-  {"date":"2026-01-27","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1219664546299780"},
-  {"date":"2026-01-27","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1400238677786680"},
-  {"date":"2026-01-27","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1425117232563464"},
-  {"date":"2026-01-27","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/4392172377683040"},
-  {"date":"2026-01-27","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1417740453129754"},
-  {"date":"2026-01-28","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/771092899357472"},
-  {"date":"2026-01-28","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1225303756228268"},
-  {"date":"2026-01-28","site":"WFL","streamer":"WoolFyBets","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1194027289558201"},
-  {"date":"2026-01-28","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1703181710645180"},
-  {"date":"2026-01-28","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/736212492579761"},
-  {"date":"2026-01-29","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1413162906941210"},
-  {"date":"2026-01-29","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/3294398284067818"},
-  {"date":"2026-01-29","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1377157194447705"},
-  {"date":"2026-01-29","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/910286828186637"},
-  {"date":"2026-01-30","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AtoClassSWorldwide/videos/2107283950029419"},
-  {"date":"2026-01-30","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/922726767372793"},
-  {"date":"2026-01-30","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/2086982632036110"},
-  {"date":"2026-01-31","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/888757614052533"},
-  {"date":"2026-01-31","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1505662780497529"},
-  {"date":"2026-02-01","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1258035249540221"},
-  {"date":"2026-02-01","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1482004456832877"},
-  {"date":"2026-02-01","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/857112140650785"},
-  {"date":"2026-02-01","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AtoClassSWorldwide/videos/1471895327613814"},
-  {"date":"2026-02-01","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1227233478814729"},
-  {"date":"2026-02-02","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1468143128649664"},
-  {"date":"2026-02-02","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/2539091036487165"},
-  {"date":"2026-02-03","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/25551401257836303"},
-  {"date":"2026-02-03","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2138138830280360"},
-  {"date":"2026-02-03","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2126375441532235"},
-  {"date":"2026-02-03","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3880295828769349"},
-  {"date":"2026-02-05","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/946763107678686"},
-  {"date":"2026-02-05","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1204921241628901"},
-  {"date":"2026-02-05","site":"WFL","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1HBeTE2hQY/?mibextid=wwXIfr"},
-  {"date":"2026-02-05","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/933610792682774"},
-  {"date":"2026-02-05","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100064343610389/videos/1590735218912899"},
-  {"date":"2026-02-06","site":"WFL","streamer":"ATO","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1977286146503441"},
-  {"date":"2026-02-06","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2413183732437811"},
-  {"date":"2026-02-06","site":"WFL","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1BGKpevMck/?mibextid=wwXIfr"},
-  {"date":"2026-02-07","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/2123963611475339"},
-  {"date":"2026-02-07","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1635276764148610"},
-  {"date":"2026-02-07","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1989255735306528"},
-  {"date":"2026-02-07","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/2050025072453651"},
-  {"date":"2026-02-08","site":"WFL","streamer":"WoolFyBets","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/937831962018202"},
-  {"date":"2026-02-08","site":"WFL","streamer":"Wrecker","spend":10000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1206776438268781"},
-  {"date":"2026-02-09","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1457249989083330/"},
-  {"date":"2026-02-09","site":"WFL","streamer":"Wrecker","spend":10000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61571307990071/videos/933228102375994"},
-  {"date":"2026-02-10","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/903855852253730"},
-  {"date":"2026-02-11","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/750412531124301"},
-  {"date":"2026-02-12","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1998982444327708"},
-  {"date":"2026-02-12","site":"WFL","streamer":"Neggy","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1429035578823633"},
-  {"date":"2026-02-13","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1589967252206600/"},
-  {"date":"2026-02-13","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/907038708540027"},
-  {"date":"2026-02-14","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1132890362176294/"},
-  {"date":"2026-02-15","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/890227746946813"},
-  {"date":"2026-02-15","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/2049746839286698"},
-  {"date":"2026-02-16","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/766124036116835/"},
-  {"date":"2026-02-16","site":"WFL","streamer":"Wrecker","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/25851082161208841"},
-  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1847515289984612"},
-  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1330995745434333"},
-  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/1493202355759004"},
-  {"date":"2026-02-17","site":"WFL","streamer":"Neggy","spend":2000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1573657753854289"},
-  {"date":"2026-02-17","site":"WFL","streamer":"Jason","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1609581016712190"},
-  {"date":"2026-02-17","site":"WFL","streamer":"HolyFather","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/2284671212054231"},
-  {"date":"2026-02-19","site":"WFL","streamer":"Jason","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/2053062885269958"},
-  {"date":"2026-02-19","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/842299848816687"},
-  {"date":"2026-02-19","site":"WFL","streamer":"HolyFather","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/896441093189490"},
-  {"date":"2026-02-19","site":"WFL","streamer":"WoolFyBets","spend":6000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1441190814221807"},
-  {"date":"2026-02-19","site":"WFL","streamer":"Neggy","spend":5000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/25969226452749054/"},
-  {"date":"2026-02-19","site":"WFL","streamer":"Wrecker","spend":35000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/bosswrecker/videos/1637630127255481"},
-  {"date":"2026-02-20","site":"WFL","streamer":"HolyFather","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/940907548408173/"},
-  {"date":"2026-02-20","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1748049056170928"},
-  {"date":"2026-02-20","site":"WFL","streamer":"WoolFyBets","spend":4000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/905983858816095"},
-  {"date":"2026-02-20","site":"WFL","streamer":"Neggy","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/NeggyTvOfficial/videos/1335162685040587/"},
-  {"date":"2026-02-21","site":"WFL","streamer":"WoolFyBets","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/TeamAetherEsports/videos/1469894714791070"},
-  {"date":"2026-02-22","site":"WFL","streamer":"Jason","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/itsmeJ4soon/videos/1084042223886702"},
-  {"date":"2026-02-22","site":"WFL","streamer":"HolyFather","spend":15000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/100084497334397/videos/3614493192027161"},
-  {"date":"2026-02-22","site":"WFL","streamer":"Wrecker","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61571307990071/videos/2902481506623071"},
-  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1174627438196210"},
-  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1331888308695207"},
-  {"date":"2026-01-23","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AprilJoyBarrueso/videos/719770387658466/?rdid=dkxVEvLqxvo9BAxp##"},
-  {"date":"2026-01-23","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/MageDadOfficial/videos/2083950799106728/?mibextid=wwXIfr&rdid=yzlq6DNNHIVcBTbe"},
-  {"date":"2026-01-23","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/2286907945120179"},
-  {"date":"2026-01-24","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/14b5g3dSrZp/"},
-  {"date":"2026-01-25","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1B1NfQncE7/?mibextid=wwXIfr"},
-  {"date":"2026-01-25","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/181MuhvgaQ/"},
-  {"date":"2026-01-25","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/2631426843894671"},
-  {"date":"2026-01-25","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1G819NgCL8/"},
-  {"date":"2026-01-25","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/849424834749801"},
-  {"date":"2026-01-25","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DZBS1M6HW/?mibextid=wwXIfr"},
-  {"date":"2026-01-26","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1985142072031770"},
-  {"date":"2026-01-26","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1BgHY3ufLH/"},
-  {"date":"2026-01-26","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Ae3nknz7f/?mibextid=wwXIfr"},
-  {"date":"2026-01-27","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/18NMwBW7as/?mibextid=wwXIfr"},
-  {"date":"2026-01-27","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/16eWLnWbS9/?mibextid=wwXIfr"},
-  {"date":"2026-01-28","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1219902220267808/?s=single_unit"},
-  {"date":"2026-01-28","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/883219898005132"},
-  {"date":"2026-01-28","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3355479341301592"},
-  {"date":"2026-01-28","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/MageDadOfficial/videos/1309297821004636"},
-  {"date":"2026-01-28","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/2435182743581156"},
-  {"date":"2026-01-28","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1KpAp2yk28/"},
-  {"date":"2026-01-29","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/3818862108406986/"},
-  {"date":"2026-01-30","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/4264556677204932"},
-  {"date":"2026-01-30","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1596936341506127"},
-  {"date":"2026-01-30","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/25529976833349181"},
-  {"date":"2026-01-31","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1EyVup21nd/?mibextid=wwXIfr"},
-  {"date":"2026-01-31","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/1216979156758075"},
-  {"date":"2026-01-31","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Wve324hmi/?mibextid=wwXIfr"},
-  {"date":"2026-01-31","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1GfwVZsgVx/?mibextid=wwXIfr"},
-  {"date":"2026-02-01","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/25710982311919077"},
-  {"date":"2026-02-01","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1BjGUW9HSd/?mibextid=wwXIfr"},
-  {"date":"2026-02-01","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Ja9JeWepW/"},
-  {"date":"2026-02-01","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/763022573520001"},
-  {"date":"2026-02-01","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1KGxFdAYwT/?mibextid=wwXIfrr"},
-  {"date":"2026-02-01","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/17E4XkVEN6/?mibextid=wwXIfr"},
-  {"date":"2026-02-02","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/japealdeaofficial/videos/884310657906295"},
-  {"date":"2026-02-02","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1C5oLXwfsi/?mibextid=wwXIfr"},
-  {"date":"2026-02-02","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/189cipCUfz/"},
-  {"date":"2026-02-02","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Live","link":"ttps://www.facebook.com/AkoSiPepVT/videos/1409000614250077"},
-  {"date":"2026-02-03","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3756562284637621"},
-  {"date":"2026-02-03","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1866GhecK5/"},
-  {"date":"2026-02-03","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1BXRYRy7kD/?mibextid=wwXIfr"},
-  {"date":"2026-02-03","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/16sfEV4t6v/?mibextid=wwXIfrSainty"},
-  {"date":"2026-02-03","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/189R4q95p6/?mibextid=wwXIfr"},
-  {"date":"2026-02-05","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1DcA6jRvQS/?mibextid=wwXIfr"},
-  {"date":"2026-02-05","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/185VujxSna/"},
-  {"date":"2026-02-05","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"ttps://www.facebook.com/share/r/1G5LdDUHkS/?mibextid=wwXIfr"},
-  {"date":"2026-02-05","site":"RLM","streamer":"Yuji","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1GNEySVXoM/?mibextid=wwXIfr"},
-  {"date":"2026-02-06","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1KL6QtBwsJ/"},
-  {"date":"2026-02-06","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/1646503923447556"},
-  {"date":"2026-02-06","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1AQQW6XH9Z/?mibextid=wwXIfr"},
-  {"date":"2026-02-07","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/19484132694003188"},
-  {"date":"2026-02-08","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1AtyRcTcFX/?mibextid=wwXIfr"},
-  {"date":"2026-02-10","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Dmxta7BNq/?mibextid=wwXIfr"},
-  {"date":"2026-02-10","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/16HzeHjkiu/?mibextid=wwXIfr"},
-  {"date":"2026-02-11","site":"RLM","streamer":"Pepper","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/3023241701218899"},
-  {"date":"2026-02-11","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Gdkackrre/?mibextid=wwXIfr"},
-  {"date":"2026-02-12","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/17mTtxHZqA/"},
-  {"date":"2026-02-12","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1AatUqjnA9/?mibextid=wwXIfr"},
-  {"date":"2026-02-12","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1SJdyXwFTk/?mibextid=wwXIfr"},
-  {"date":"2026-02-12","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/61575739010148/videos/908858785185458"},
-  {"date":"2026-02-13","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/14UFQ23H38e/?mibextid=wwXIfr"},
-  {"date":"2026-02-13","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/17xY2ajMy3/"},
-  {"date":"2026-02-14","site":"RLM","streamer":"Jape","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/r/1bKKbsnjzD/?mibextid=wwXIfr"},
-  {"date":"2026-02-15","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1KCkHTy2w9/?mibextid=wwXIfr"},
-  {"date":"2026-02-16","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1CCb57zdFq/"},
-  {"date":"2026-02-16","site":"RLM","streamer":"AJ","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1Fu2Aab9dy/?mibextid=wwXIfr"},
-  {"date":"2026-02-19","site":"RLM","streamer":"Sainty","spend":3000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1FQNn8TtaV/?mibextid=wwXIfr"},
-  {"date":"2026-02-19","site":"RLM","streamer":"Pepper","spend":9000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/AkoSiPepVT/videos/1214152930875048"},
-  {"date":"2026-02-19","site":"RLM","streamer":"Sainty","spend":4000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1c9eFsuCQQ/?mibextid=wwXIfr"},
-  {"date":"2026-02-20","site":"RLM","streamer":"AJ","spend":18000,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1Dz8A6Vmx4/"},
-  {"date":"2026-02-20","site":"RLM","streamer":"AJ","spend":12000,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1A7SfntoYA/?mibextid=wwXIfr"},
-  {"date":"2026-02-21","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/188cpCWQWn/?mibextid=wwXIf"},
-  {"date":"2026-02-21","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/r/1ESdCyFXCX/?mibextid=wwXIfr"},
-  {"date":"2026-02-22","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/1Evmg9Rxvt/?mibextid=wwXIfr"},
-  {"date":"2026-02-23","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/14TDMLqg18j/"},
-  {"date":"2026-02-24","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/764763246691386"},
-  {"date":"2026-02-24","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/reel/25990248340642557"},
-  {"date":"2026-02-24","site":"RLM","streamer":"Sainty","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://www.facebook.com/share/v/16PEbZEbVw/?mibextid=wwXIfr"},
-  {"date":"2026-02-25","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/18KghvAV8L/"},
-  {"date":"2026-02-25","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1CE21gSx8S/"},
-  {"date":"2026-02-26","site":"RLM","streamer":"AJ","spend":0,"reg":0,"dep":0,"type":"Live","link":"https://www.facebook.com/share/v/1B3SJJ27so/"},
-  {"date":"2026-02-26","site":"RLM","streamer":"Jape","spend":0,"reg":0,"dep":0,"type":"Reels","link":"https://web.facebook.com/share/v/1WqydA43VH/?mibextid=87OH41"}
-];
 
 // ─── BUILT-IN STREAMER ALIAS DICTIONARY ───────────────────────────────────
 // Maps normalised CSV header/section names → canonical streamer display names.
@@ -1094,18 +914,25 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
 }
 
 export default function App() {
-  // --- DATA STATE (localStorage only) ---
-  const [data, setData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('campaignData_v6');
-      return saved ? JSON.parse(saved) : rawData;
-    } catch { return rawData; }
-  });
-  const [loading] = useState(false);
+  // --- AUTH ---
+  const { role, signOut } = useAuth();
+  const isAdmin = role === 'admin';
 
-  useEffect(() => {
-    localStorage.setItem('campaignData_v6', JSON.stringify(data));
-  }, [data]);
+  // --- DATA STATE (Supabase) ---
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: rows, error } = await supabase
+      .from('campaigns')
+      .select('*')
+      .order('date', { ascending: true });
+    if (!error) setData(rows || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   // --- VIEW STATE ---
   const [activeView, setActiveView] = useState('dashboard');
@@ -1119,50 +946,45 @@ export default function App() {
   }, [darkMode]);
 
   // --- ADS REPORT DATA ---
-  const [adsReportData, setAdsReportData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('adsReportData');
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  const [adsReportData, setAdsReportData] = useState({});
 
   useEffect(() => {
-    localStorage.setItem('adsReportData', JSON.stringify(adsReportData));
-  }, [adsReportData]);
+    supabase.from('ads_report').select('*').then(({ data: rows }) => {
+      if (rows) {
+        const obj = {};
+        rows.forEach(r => { obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, boosting: r.boosting }; });
+        setAdsReportData(obj);
+      }
+    });
+  }, []);
 
   // --- CREATOR PERF DATA ---
-  const [creatorPerfData, setCreatorPerfData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('creatorPerfData');
-      if (!saved) return defaultCreatorPerfData;
-      const migrateKeys = (obj) => {
-        const out = {};
-        for (const [k, v] of Object.entries(obj)) {
-          const newKey = k.replace('|Aether|', '|WoolFyBets|').replace('|GhostWrecker|', '|Wrecker|');
-          out[newKey] = v;
-        }
-        return out;
-      };
-      const parsed = migrateKeys(JSON.parse(saved));
-      return { ...defaultCreatorPerfData, ...parsed };
-    } catch { return defaultCreatorPerfData; }
-  });
+  const [creatorPerfData, setCreatorPerfData] = useState(defaultCreatorPerfData);
 
   useEffect(() => {
-    localStorage.setItem('creatorPerfData', JSON.stringify(creatorPerfData));
-  }, [creatorPerfData]);
+    supabase.from('creator_perf').select('*').then(({ data: rows }) => {
+      if (rows && rows.length > 0) {
+        const obj = { ...defaultCreatorPerfData };
+        rows.forEach(r => {
+          obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
+        });
+        setCreatorPerfData(obj);
+      }
+    });
+  }, []);
 
   // --- NO STREAM DATA ---
-  const [noStreamData, setNoStreamData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('noStreamData');
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  const [noStreamData, setNoStreamData] = useState({});
 
   useEffect(() => {
-    localStorage.setItem('noStreamData', JSON.stringify(noStreamData));
-  }, [noStreamData]);
+    supabase.from('no_stream').select('*').then(({ data: rows }) => {
+      if (rows) {
+        const obj = {};
+        rows.forEach(r => { obj[r.key] = true; });
+        setNoStreamData(obj);
+      }
+    });
+  }, []);
 
   // --- ADS EDIT MODAL STATE ---
   const [showAdsModal, setShowAdsModal] = useState(false);
@@ -1186,16 +1008,14 @@ export default function App() {
   };
 
   const handleAdsSave = async () => {
-    const updated = {
-      ...adsReportData,
-      [adsEditKey]: {
-        ggr: parseFloat(adsFormValues.ggr) || 0,
-        bonus: parseFloat(adsFormValues.bonus) || 0,
-        ngr: parseFloat(adsFormValues.ngr) || 0,
-        boosting: parseFloat(adsFormValues.boosting) || 0,
-      },
+    const val = {
+      ggr: parseFloat(adsFormValues.ggr) || 0,
+      bonus: parseFloat(adsFormValues.bonus) || 0,
+      ngr: parseFloat(adsFormValues.ngr) || 0,
+      boosting: parseFloat(adsFormValues.boosting) || 0,
     };
-    setAdsReportData(updated);
+    await supabase.from('ads_report').upsert({ key: adsEditKey, ...val }, { onConflict: 'key' });
+    setAdsReportData(prev => ({ ...prev, [adsEditKey]: val }));
     setShowAdsModal(false);
   };
 
@@ -1229,20 +1049,23 @@ export default function App() {
     setShowCreatorPerfModal(true);
   };
 
-  const handleCreatorPerfSave = () => {
-    const updated = {
-      ...creatorPerfData,
-      [creatorPerfEditKey]: {
-        ggr: parseFloat(creatorPerfFormValues.ggr) || 0,
-        bonus: parseFloat(creatorPerfFormValues.bonus) || 0,
-        ngr: parseFloat(creatorPerfFormValues.ngr) || 0,
-        activePl: parseFloat(creatorPerfFormValues.activePl) || 0,
-        validTurnover: parseFloat(creatorPerfFormValues.validTurnover) || 0,
-        totalWithdrawal: parseFloat(creatorPerfFormValues.totalWithdrawal) || 0,
-        status: creatorPerfFormValues.status !== null ? creatorPerfFormValues.status : undefined,
-      },
+  const handleCreatorPerfSave = async () => {
+    const val = {
+      ggr: parseFloat(creatorPerfFormValues.ggr) || 0,
+      bonus: parseFloat(creatorPerfFormValues.bonus) || 0,
+      ngr: parseFloat(creatorPerfFormValues.ngr) || 0,
+      activePl: parseFloat(creatorPerfFormValues.activePl) || 0,
+      validTurnover: parseFloat(creatorPerfFormValues.validTurnover) || 0,
+      totalWithdrawal: parseFloat(creatorPerfFormValues.totalWithdrawal) || 0,
+      status: creatorPerfFormValues.status !== null ? creatorPerfFormValues.status : undefined,
     };
-    setCreatorPerfData(updated);
+    await supabase.from('creator_perf').upsert({
+      key: creatorPerfEditKey,
+      ggr: val.ggr, bonus: val.bonus, ngr: val.ngr,
+      active_pl: val.activePl, valid_turnover: val.validTurnover,
+      total_withdrawal: val.totalWithdrawal, status: val.status,
+    }, { onConflict: 'key' });
+    setCreatorPerfData(prev => ({ ...prev, [creatorPerfEditKey]: val }));
     setShowCreatorPerfModal(false);
   };
 
@@ -1265,62 +1088,63 @@ export default function App() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formValues.date || !formValues.streamer) return;
     const { id: _id, ...formClean } = formValues;
     const entry = { ...formClean, spend: parseFloat(formClean.spend) || 0, reg: parseInt(formClean.reg) || 0, dep: parseFloat(formClean.dep) || 0 };
     if (editingId !== null) {
-      const updated = [...data];
-      updated[editingId] = entry;
-      setData(updated);
+      const item = data[editingId];
+      const { error } = await supabase.from('campaigns').update(entry).eq('id', item.id);
+      if (!error) {
+        const updated = [...data];
+        updated[editingId] = { ...item, ...entry };
+        setData(updated);
+      }
     } else {
-      setData(prev => [...prev, entry]);
+      const { data: newRows, error } = await supabase.from('campaigns').insert([entry]).select();
+      if (!error && newRows) setData(prev => [...prev, newRows[0]]);
     }
     setShowModal(false);
   };
 
-  const handleDelete = (item) => {
+  const handleDelete = async (item) => {
     if (window.confirm('Delete this entry?')) {
-      setData(prev => prev.filter(d => d !== item));
+      const { error } = await supabase.from('campaigns').delete().eq('id', item.id);
+      if (!error) setData(prev => prev.filter(d => d.id !== item.id));
     }
   };
 
-  const handleDeleteDay = (dayEntries) => {
+  const handleDeleteDay = async (dayEntries) => {
     if (window.confirm(`Delete all ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day?`)) {
-      setData(prev => prev.filter(d => !dayEntries.includes(d)));
+      const ids = dayEntries.map(d => d.id);
+      const { error } = await supabase.from('campaigns').delete().in('id', ids);
+      if (!error) setData(prev => prev.filter(d => !ids.includes(d.id)));
     }
   };
 
-  const handleMarkNoStream = (date, streamer, site) => {
+  const handleMarkNoStream = async (date, streamer, site) => {
     const key = `${date}|${streamer}|${site}`;
+    await supabase.from('no_stream').upsert({ key }, { onConflict: 'key' });
     setNoStreamData(prev => ({ ...prev, [key]: true }));
   };
 
-  const handleUnmarkNoStream = (key) => {
+  const handleUnmarkNoStream = async (key) => {
+    await supabase.from('no_stream').delete().eq('key', key);
     setNoStreamData(prev => { const u = { ...prev }; delete u[key]; return u; });
   };
 
-  const handleResetData = () => {
-    if (window.confirm('Reset all data back to the original? All added entries will be lost.')) {
-      setData(rawData);
-    }
-  };
-
-  const handleDeduplicateData = () => {
+  const handleDeduplicateData = async () => {
     const seen = new Set();
-    const deduped = data.filter(e => {
+    const toRemove = [];
+    data.forEach(e => {
       const key = `${e.date}|${e.site}|${e.streamer}|${e.link}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      if (seen.has(key)) { toRemove.push(e.id); }
+      else { seen.add(key); }
     });
-    const removed = data.length - deduped.length;
-    if (removed === 0) {
-      alert('No duplicates found.');
-      return;
-    }
-    if (window.confirm(`Found ${removed} duplicate entr${removed === 1 ? 'y' : 'ies'}. Remove them?`)) {
-      setData(deduped);
+    if (toRemove.length === 0) { alert('No duplicates found.'); return; }
+    if (window.confirm(`Found ${toRemove.length} duplicate entr${toRemove.length === 1 ? 'y' : 'ies'}. Remove them?`)) {
+      const { error } = await supabase.from('campaigns').delete().in('id', toRemove);
+      if (!error) setData(prev => prev.filter(d => !toRemove.includes(d.id)));
     }
   };
 
@@ -1664,9 +1488,10 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const handleEODImport = () => {
+  const handleEODImport = async () => {
     const site = eodSite;
     const newPerf = { ...creatorPerfData };
+    const upsertRows = [];
     let count = 0;
     eodSections.filter(s => s.selected).forEach(section => {
       section.rows.forEach(row => {
@@ -1681,21 +1506,31 @@ export default function App() {
           reg:             row.reg,
           dep:             row.dep,
         };
+        upsertRows.push({
+          key,
+          ggr: row.ggr, bonus: row.bonus, ngr: row.ngr,
+          active_pl: row.activePl, valid_turnover: row.validTurnover,
+          total_withdrawal: row.totalWithdrawal, reg: row.reg, dep: row.dep,
+        });
         count++;
       });
     });
+    if (upsertRows.length > 0) {
+      await supabase.from('creator_perf').upsert(upsertRows, { onConflict: 'key' });
+    }
     setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
     setImportStep(3);
   };
 
-  const handleCampaignImport = (skipDuplicates) => {
+  const handleCampaignImport = async (skipDuplicates) => {
     const isDup = (e) => data.some(d =>
       d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.link === e.link
     );
     const toImport = skipDuplicates ? campPreview.filter(e => !isDup(e)) : campPreview;
     const skipped  = campPreview.length - toImport.length;
-    setData(prev => [...prev, ...toImport]);
+    const { data: newRows, error } = await supabase.from('campaigns').insert(toImport).select();
+    if (!error && newRows) setData(prev => [...prev, ...newRows]);
     setImportResult({ imported: toImport.length, skipped, mode: 'campaign' });
     setImportStep(3);
   };
@@ -1956,38 +1791,91 @@ export default function App() {
     <div className="bg-slate-50 min-h-screen font-sans text-slate-900">
       
       {/* STICKY HEADER WRAPPER */}
-      <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-2 md:px-8 space-y-2">
-          
-          <header className="flex flex-row justify-between items-center gap-3">
-            <div className="flex items-center gap-3 flex-nowrap shrink-0">
-              <h1 className="text-xl md:text-2xl font-bold text-indigo-900 tracking-tight whitespace-nowrap">Campaign Performance</h1>
-              <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                <Plus size={14} /> Add Entry
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-8">
+
+          {/* ROW 1 — Brand + User Controls */}
+          <div className="flex items-center justify-between h-14 gap-4">
+            {/* Left: Logo + Title */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              </div>
+              <h1 className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">Campaign Tracker</h1>
+            </div>
+
+            {/* Center: Tab Navigation */}
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setActiveView('dashboard')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeView === 'dashboard' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <TrendingUp size={13}/> Dashboard
               </button>
-              {!(activeView === 'report' && reportSubTab === 'creator') && (
-              <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                <Upload size={14} /> Import CSV
-              </button>
-              )}
-              <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                <CheckCircle size={14} /> Dedup
+              <button
+                onClick={() => setActiveView('report')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeView === 'report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <BarChart2 size={13}/> Report
               </button>
             </div>
-            
-            <div className="flex gap-2 items-center flex-nowrap">
+
+            {/* Right: User Controls */}
+            <div className="flex items-center gap-2 shrink-0">
               {/* Dark mode toggle */}
               <button
                 onClick={() => setDarkMode(d => !d)}
                 title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 transition-colors text-xs font-semibold shadow-sm"
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
               >
                 {darkMode
                   ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
                   : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 }
-                {darkMode ? 'Light' : 'Dark'}
               </button>
+              {/* Role badge */}
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                isAdmin ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
+              }`}>{role ?? 'viewer'}</span>
+              {/* Sign out */}
+              <button
+                onClick={signOut}
+                title="Sign out"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all text-xs font-semibold shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign out
+              </button>
+            </div>
+          </div>
+
+          {/* ROW 2 — Actions + Filters */}
+          <div className="flex items-center justify-between h-12 gap-3 border-t border-slate-100">
+            {/* Left: Action Buttons */}
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button onClick={openAddModal} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
+                  <Plus size={13} /> Add Entry
+                </button>
+              )}
+              {isAdmin && !(activeView === 'report' && reportSubTab === 'creator') && (
+                <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
+                  <Upload size={13} /> Import CSV
+                </button>
+              )}
+              {isAdmin && (
+                <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
+                  <CheckCircle size={13} /> Dedup
+                </button>
+              )}
+            </div>
+
+            {/* Right: Date Picker + Filters */}
+            <div className="flex items-center gap-2">
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
@@ -1996,62 +1884,49 @@ export default function App() {
                 minDate={minDate}
                 maxDate={maxDate}
               />
-
               {!(activeView === 'report' && reportSubTab === 'creator') && (
-              <div className="flex gap-2 bg-white p-1.5 rounded-lg shadow-sm border border-slate-200">
-                <div className="flex items-center px-2 text-slate-400">
-                  <Filter size={16} />
+                <div className="flex items-center gap-0 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden divide-x divide-slate-200">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5">
+                    <Filter size={13} className="text-slate-400" />
+                    <select
+                      value={filterSite}
+                      onChange={(e) => setFilterSite(e.target.value)}
+                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer"
+                    >
+                      <option value="All">All Sites</option>
+                      {sites.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5">
+                    <select
+                      value={filterStreamer}
+                      onChange={(e) => setFilterStreamer(e.target.value)}
+                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer max-w-[110px] truncate"
+                    >
+                      <option value="All">All Streamers</option>
+                      {streamers.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5">
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer"
+                    >
+                      <option value="All">All Formats</option>
+                      {types.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <select 
-                  value={filterSite} 
-                  onChange={(e) => setFilterSite(e.target.value)}
-                  className="bg-transparent text-xs md:text-sm font-medium focus:outline-none text-slate-700"
-                >
-                  <option value="All">All Sites</option>
-                  {sites.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <div className="w-px bg-slate-200 mx-1"></div>
-                <select 
-                  value={filterStreamer} 
-                  onChange={(e) => setFilterStreamer(e.target.value)}
-                  className="bg-transparent text-xs md:text-sm font-medium focus:outline-none text-slate-700 max-w-[100px] md:max-w-none truncate"
-                >
-                  <option value="All">All Streamers</option>
-                  {streamers.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <div className="w-px bg-slate-200 mx-1"></div>
-                <select 
-                  value={filterType} 
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-transparent text-xs md:text-sm font-medium focus:outline-none text-slate-700"
-                >
-                  <option value="All">All Formats</option>
-                  {types.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
               )}
             </div>
-          </header>
-
-          {/* TAB NAVIGATION */}
-          <div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-fit">
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                activeView === 'dashboard' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              <TrendingUp size={13}/> Dashboard
-            </button>
-            <button
-              onClick={() => setActiveView('report')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                activeView === 'report' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              <BarChart2 size={13}/> Report
-            </button>
           </div>
+
+        </div>
+      </div>
+
+      {/* STATS CARDS */}
+      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3">
 
           <div className={`grid gap-3 ${(activeView === 'report' && reportSubTab === 'creator') ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7'}`}>
             {(() => {
@@ -2148,7 +2023,6 @@ export default function App() {
             </div>
           )}
         </div>
-      </div>
 
       {(!startDate || !endDate) && (
         <div className="max-w-7xl mx-auto p-4 md:p-8">
@@ -2405,10 +2279,12 @@ export default function App() {
                 {filteredData.map((item, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3">
+                      {isAdmin && (
                       <div className="flex gap-1">
                         <button onClick={() => openEditModal(item)} className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Edit"><Edit2 size={13}/></button>
                         <button onClick={() => handleDelete(item)} className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded" title="Delete"><Trash2 size={13}/></button>
                       </div>
+                      )}
                     </td>
                     <td className="p-3 text-slate-500 whitespace-nowrap">{item.date}</td>
                     <td className="p-3 text-slate-500">{item.site}</td>
@@ -2511,6 +2387,7 @@ export default function App() {
           onEditEntry={openEditModal}
           onDeleteEntry={handleDelete}
           onDeleteDay={handleDeleteDay}
+          isAdmin={isAdmin}
           noStreamData={noStreamData}
           onMarkNoStream={handleMarkNoStream}
           onUnmarkNoStream={handleUnmarkNoStream}
@@ -3317,7 +3194,7 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD }) {
+function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin }) {
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
 
@@ -3679,7 +3556,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                           <VideoOff size={12}/>
                         </button>
                       )}
-                      {row.hasData !== false && (
+                      {row.hasData !== false && isAdmin && (
                         <button
                           onClick={() => onDeleteDay(row.dayEntries)}
                           className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
@@ -3714,6 +3591,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                                 <td className="py-1.5 text-right text-slate-600 dark:text-slate-400">{entry.reg}</td>
                                 <td className="py-1.5 text-right text-emerald-600">{formatPHP(entry.dep)}</td>
                                 <td className="py-1.5 text-center flex items-center justify-center gap-1">
+                                  {isAdmin && (
                                   <button
                                     onClick={() => onEditEntry(entry)}
                                     className="p-1 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded transition-colors"
@@ -3721,6 +3599,8 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                                   >
                                     <Edit2 size={11}/>
                                   </button>
+                                  )}
+                                  {isAdmin && (
                                   <button
                                     onClick={() => onDeleteEntry(entry)}
                                     className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
@@ -3728,17 +3608,20 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
                                   >
                                     <Trash2 size={11}/>
                                   </button>
+                                  )}
                                 </td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                        {isAdmin && (
                         <button
                           onClick={() => onAddEntry(selectedStreamer, row.siteName)}
                           className="mt-2 flex items-center gap-1 text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold transition-colors"
                         >
                           <Plus size={11}/> Add entry for this day
                         </button>
+                        )}
                       </td>
                     </tr>
                   )}
