@@ -914,54 +914,79 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
 }
 
 // ─── CUSTOM FILTER DROPDOWN ──────────────────────────────────────────────────
-function FilterDropdown({ icon, value, options, allLabel, onChange }) {
+const ChevronIcon = ({open}) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`}><polyline points="6 9 12 15 18 9"/></svg>
+);
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+const DropdownPanel = ({children, align='right', minWidth='140px'}) => (
+  <div className={`absolute top-full ${align==='left'?'left-0':'right-0'} mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl shadow-indigo-100/40 dark:shadow-black/30 overflow-hidden z-50 py-1`} style={{minWidth, animation:'dropdownPop 0.15s cubic-bezier(0.22,1,0.36,1) both'}}>
+    {children}
+  </div>
+);
+const DropdownItem = ({active, onClick, children}) => (
+  <button type="button" onClick={onClick} className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${active ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white' : 'text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300'}`}>
+    {active ? <CheckIcon/> : <span className="w-[10px]"/>}
+    {children}
+  </button>
+);
+
+function FilterDropdown({ icon, value, options, allLabel, onChange, triggerClass }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const displayLabel = value === 'All' ? allLabel : value;
-
+  const displayLabel = (allLabel && value === 'All') ? allLabel : value;
+  const allOptions = allLabel ? ['All', ...options] : options;
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer select-none ${
-          open ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'
-        }`}
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={triggerClass || `flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer select-none ${ open ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'}`}
       >
         {icon}
-        <span className="max-w-[110px] truncate">{displayLabel}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`}><polyline points="6 9 12 15 18 9"/></svg>
+        <span className="max-w-[140px] truncate">{displayLabel}</span>
+        <ChevronIcon open={open}/>
       </button>
-
       {open && (
-        <div className="absolute top-full right-0 mt-1.5 min-w-[140px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl shadow-indigo-100/40 dark:shadow-black/30 overflow-hidden z-50 py-1" style={{animation:'dropdownPop 0.15s cubic-bezier(0.22,1,0.36,1) both'}}>
-          {['All', ...options].map((opt) => {
-            const isAll = opt === 'All';
-            const label = isAll ? allLabel : opt;
+        <DropdownPanel>
+          {allOptions.map(opt => {
+            const label = (allLabel && opt === 'All') ? allLabel : opt;
             const active = value === opt;
-            return (
-              <button
-                key={opt}
-                onClick={() => { onChange(opt); setOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${
-                  active
-                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
-                    : 'text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300'
-                }`}
-              >
-                {active && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                {!active && <span className="w-[10px]" />}
-                {label}
-              </button>
-            );
+            return <DropdownItem key={opt} active={active} onClick={() => { onChange(opt); setOpen(false); }}>{label}</DropdownItem>;
           })}
-        </div>
+        </DropdownPanel>
+      )}
+    </div>
+  );
+}
+
+// ─── FORM SELECT (full-width, for modals & popovers) ─────────────────────────
+function FormSelect({ value, onSelect, options, className }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div ref={ref} className={`relative ${className||''}`}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer transition-colors hover:border-indigo-300 ${ open ? 'border-indigo-400 ring-2 ring-indigo-100' : ''}`}
+      >
+        <span>{value}</span>
+        <ChevronIcon open={open}/>
+      </button>
+      {open && (
+        <DropdownPanel align="left" minWidth="100%">
+          {options.map(opt => (
+            <DropdownItem key={opt} active={value===opt} onClick={() => { onSelect(opt); setOpen(false); }}>{opt}</DropdownItem>
+          ))}
+        </DropdownPanel>
       )}
     </div>
   );
@@ -1235,12 +1260,60 @@ export default function App() {
     }
   };
 
-  const handleDeleteDay = async (dayEntries) => {
-    if (window.confirm(`Delete all ${dayEntries.length} entr${dayEntries.length === 1 ? 'y' : 'ies'} for this day?`)) {
+  // --- UNDO TOAST ---
+  const [undoToast, setUndoToast] = useState(null);
+  const undoTimerRef = useRef(null);
+
+  const dismissUndoToast = () => {
+    clearTimeout(undoTimerRef.current);
+    setUndoToast(null);
+  };
+
+  const handleDeleteDay = async (dayEntries, perfKey) => {
+    const hasEntries = dayEntries && dayEntries.length > 0;
+    const hasPerf = !!perfKey;
+    const label = hasEntries
+      ? `${dayEntries.length} campaign entr${dayEntries.length === 1 ? 'y' : 'ies'}`
+      : 'EOD performance record';
+
+    // 1. Optimistic — remove from local state immediately
+    const removedEntries = hasEntries ? dayEntries : [];
+    const removedPerfValue = hasPerf ? creatorPerfData[perfKey] : null;
+    if (hasEntries) {
       const ids = dayEntries.map(d => d.id);
-      const { error } = await supabase.from('campaigns').delete().in('id', ids);
-      if (!error) setData(prev => prev.filter(d => !ids.includes(d.id)));
+      setData(prev => prev.filter(d => !ids.includes(d.id)));
     }
+    if (hasPerf) {
+      setCreatorPerfData(prev => { const u = { ...prev }; delete u[perfKey]; return u; });
+    }
+
+    // 2. Show undo toast — commit to DB after 5s
+    clearTimeout(undoTimerRef.current);
+    setUndoToast({ label, campaignEntries: removedEntries, perfKey, perfValue: removedPerfValue, ts: Date.now() });
+    undoTimerRef.current = setTimeout(async () => {
+      // Commit deletes
+      if (hasEntries) {
+        const ids = removedEntries.map(d => d.id);
+        await supabase.from('campaigns').delete().in('id', ids);
+      }
+      if (hasPerf) {
+        await supabase.from('creator_perf').delete().eq('key', perfKey);
+      }
+      setUndoToast(null);
+    }, 10000);
+  };
+
+  const handleUndoDelete = () => {
+    if (!undoToast) return;
+    clearTimeout(undoTimerRef.current);
+    // Restore local state
+    if (undoToast.campaignEntries.length > 0) {
+      setData(prev => [...prev, ...undoToast.campaignEntries]);
+    }
+    if (undoToast.perfKey && undoToast.perfValue) {
+      setCreatorPerfData(prev => ({ ...prev, [undoToast.perfKey]: undoToast.perfValue }));
+    }
+    setUndoToast(null);
   };
 
   const handleMarkNoStream = async (date, streamer, site) => {
@@ -2714,9 +2787,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</label>
-                  <select value={formValues.site} onChange={e => setFormValues({...formValues, site: e.target.value})} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option>WFL</option><option>RLM</option><option>COW</option><option>T2B</option>
-                  </select>
+                  <FormSelect className="mt-1" value={formValues.site} onSelect={v => setFormValues({...formValues, site: v})} options={['WFL','RLM','COW','T2B']}/>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -2729,9 +2800,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</label>
-                  <select value={formValues.type} onChange={e => setFormValues({...formValues, type: e.target.value})} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option>Live</option><option>Reels</option>
-                  </select>
+                  <FormSelect className="mt-1" value={formValues.type} onSelect={v => setFormValues({...formValues, type: v})} options={['Live','Reels']}/>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -2755,11 +2824,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</label>
-                  <select value={formValues.status || 'Pending'} onChange={e => setFormValues({...formValues, status: e.target.value})} className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    <option>Pending</option>
-                    <option>Success</option>
-                    <option>Failed</option>
-                  </select>
+                  <FormSelect className="mt-1" value={formValues.status || 'Pending'} onSelect={v => setFormValues({...formValues, status: v})} options={['Pending','Success','Failed']}/>
                 </div>
               </div>
             </div>
@@ -3193,6 +3258,26 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* UNDO TOAST */}
+      {undoToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 bg-slate-900 dark:bg-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-black/30 border border-slate-700 dark:border-slate-600" style={{animation:'dropdownPop 0.2s cubic-bezier(0.22,1,0.36,1) both', minWidth:'280px'}}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400 shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white truncate">Deleted <span className="text-red-300">{undoToast.label}</span></p>
+            <div className="mt-1.5 h-0.5 bg-slate-700 dark:bg-slate-600 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-400 rounded-full" style={{animation:'undoCountdown 10s linear forwards'}}/>
+            </div>
+          </div>
+          <button onClick={handleUndoDelete} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            Undo
+          </button>
+          <button onClick={dismissUndoToast} className="text-slate-400 hover:text-white transition-colors shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -3544,6 +3629,15 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
   const [noStreamSiteInput, setNoStreamSiteInput] = React.useState(sites[0] || '');
   const [nsOpen, setNsOpen] = React.useState(false);
   const nsRef = React.useRef(null);
+  const [eodSort, setEodSort] = React.useState({ col: null, dir: null });
+
+  const toggleSort = (col) => {
+    setEodSort(prev => {
+      if (prev.col !== col) return { col, dir: 'desc' };
+      if (prev.dir === 'desc') return { col, dir: 'asc' };
+      return { col: null, dir: null }; // third click = reset
+    });
+  };
 
   React.useEffect(() => {
     if (!nsOpen) return;
@@ -3630,6 +3724,30 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
   // Merge and sort all rows by date
   const rows = [...entryRows, ...pureNoStreamRows].sort((a, b) => a.date.localeCompare(b.date));
 
+  // Sort rows
+  const sortedRows = React.useMemo(() => {
+    const colMap = {
+      date: r => r.date,
+      site: r => r.siteName || '',
+      reg: r => r.totalReg || 0,
+      activePl: r => r.activePl || 0,
+      validTurnover: r => r.validTurnover || 0,
+      adSpend: r => r.totalSpend || 0,
+      totalDep: r => r.totalDep || 0,
+      withdrawal: r => r.totalWithdrawal || 0,
+      ggr: r => r.ggr || 0,
+      bonus: r => r.bonus || 0,
+      ngr: r => r.ngr || 0,
+    };
+    if (!eodSort.col) return [...rows].sort((a, b) => a.date.localeCompare(b.date));
+    const fn = colMap[eodSort.col] || (r => r.date);
+    return [...rows].sort((a, b) => {
+      const av = fn(a), bv = fn(b);
+      if (typeof av === 'string') return eodSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return eodSort.dir === 'asc' ? av - bv : bv - av;
+    });
+  }, [rows, eodSort]);
+
   // Totals — include no-stream rows that DO have data (streamer had data even without streaming)
   const totals = rows.filter(r => r.hasData !== false).reduce((acc, r) => ({
     spend: acc.spend + r.totalSpend,
@@ -3675,8 +3793,8 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
     onSummaryChange({ ...allTotals, streams: totalStreams, reels: totalReels });
   }, [allTotals.spend, allTotals.dep, allTotals.reg, allTotals.ggr, allTotals.bonus, allTotals.ngr, allTotals.efficacyRate, totalStreams, totalReels]);
 
-  // Index of the last actual (non-noStream) row for PENDING badge
-  const lastEntryIdx = rows.reduce((last, r, i) => (!r.noStream ? i : last), -1);
+  // Index of the last actual (non-noStream) row for PENDING badge — based on date-sorted order
+  const lastEntryDate = rows.filter(r => !r.noStream).at(-1)?.date;
 
   const fmtVal = (n) => {
     const v = parseFloat(n) || 0;
@@ -3703,27 +3821,22 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
     <div className={`${mw} py-8 space-y-6 view-enter`}>
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-start">
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
-          <Activity size={16} className="text-indigo-400" />
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Creator</label>
-          <select
+        <div className="flex items-center gap-0 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible divide-x divide-slate-100 dark:divide-slate-700">
+          <FilterDropdown
+            icon={<Activity size={13} className="text-indigo-400 shrink-0"/>}
             value={selectedStreamer}
-            onChange={e => setSelectedStreamer(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none"
-          >
-            {siteFilteredStreamers.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Site</label>
-          <select
+            options={siteFilteredStreamers}
+            onChange={setSelectedStreamer}
+            triggerClass={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer select-none hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 hover:text-indigo-700`}
+          />
+          <FilterDropdown
+            icon={<Filter size={13} className="text-indigo-400 shrink-0"/>}
             value={selectedSite}
-            onChange={e => setSelectedSite(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none"
-          >
-            <option value="All">All Sites</option>
-            {sites.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+            options={sites}
+            allLabel="All Sites"
+            onChange={setSelectedSite}
+            triggerClass={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer select-none hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 hover:text-indigo-700`}
+          />
         </div>
         <button
           onClick={() => onAddEntry(selectedStreamer, selectedSite)}
@@ -3760,13 +3873,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
               {selectedSite === 'All' && (
                 <div className="mb-3">
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1">Site</label>
-                  <select
-                    value={noStreamSiteInput}
-                    onChange={e => setNoStreamSiteInput(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  >
-                    {sites.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <FormSelect value={noStreamSiteInput} onSelect={setNoStreamSiteInput} options={sites}/>
                 </div>
               )}
               <div className="flex gap-2">
@@ -3804,19 +3911,32 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-green-900 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
-                <th className="px-2 py-2 text-left font-semibold">Day</th>
-                <th className="px-2 py-2 text-left font-semibold">Site</th>
-                <th className="px-2 py-2 text-right font-semibold">Reg</th>
-                <th className="px-2 py-2 text-right font-semibold">Active PL</th>
-                <th className="px-2 py-2 text-right font-semibold">Valid Turnover</th>
-                <th className="px-2 py-2 text-right font-semibold">Ad Spend</th>
-                <th className="px-2 py-2 text-right font-semibold">Total Deposit</th>
-                <th className="px-2 py-2 text-right font-semibold">Withdrawal</th>
-                <th className="px-2 py-2 text-right font-semibold">Win/Loss</th>
-                <th className="px-2 py-2 text-right font-semibold">Bonus</th>
-                <th className="px-2 py-2 text-right font-semibold">NGR</th>
-                <th className="px-2 py-2 text-center font-semibold">Status</th>
-                <th className="px-2 py-2 text-center font-semibold">Actions</th>
+                {[{col:'date',label:'Day',align:'left'},{col:'site',label:'Site',align:'left'},{col:'reg',label:'Reg',align:'right'},{col:'activePl',label:'Active PL',align:'right'},{col:'validTurnover',label:'Valid Turnover',align:'right'},{col:'adSpend',label:'Ad Spend',align:'right'},{col:'totalDep',label:'Total Deposit',align:'right'},{col:'withdrawal',label:'Withdrawal',align:'right'},{col:'ggr',label:'Win/Loss',align:'right'},{col:'bonus',label:'Bonus',align:'right'},{col:'ngr',label:'NGR',align:'right'}].map(({col,label,align})=>{
+                  const active = eodSort.col === col;
+                  const isDesc = active && eodSort.dir === 'desc';
+                  const isAsc  = active && eodSort.dir === 'asc';
+                  return (
+                    <th key={col} onClick={()=>toggleSort(col)} className={`px-2 py-2 text-${align} font-semibold cursor-pointer select-none group whitespace-nowrap bg-green-900 hover:bg-green-800 transition-colors`}>
+                      <span className={`inline-flex items-center gap-1 w-full ${align==='right' ? 'justify-end' : 'justify-start'}`}>
+                        {align==='right'&&(
+                          <span className="opacity-0 group-hover:opacity-60 transition-opacity">
+                            {!active&&<span className="text-[10px]">⇅</span>}
+                          </span>
+                        )}
+                        <span>{label}</span>
+                        {align==='left'&&(
+                          <span className="opacity-0 group-hover:opacity-60 transition-opacity">
+                            {!active&&<span className="text-[10px]">⇅</span>}
+                          </span>
+                        )}
+                        {isDesc&&<span className="text-[11px] text-emerald-300 font-bold">▲</span>}
+                        {isAsc&&<span className="text-[11px] text-red-300 font-bold">▼</span>}
+                      </span>
+                    </th>
+                  );
+                })}
+                <th className="px-2 py-2 text-center font-semibold bg-green-900">Status</th>
+                <th className="px-2 py-2 text-center font-semibold bg-green-900">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -3827,7 +3947,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   </td>
                 </tr>
               )}
-              {rows.map((row, idx) => (
+              {sortedRows.map((row, idx) => (
                 <React.Fragment key={idx}>
                   <>
                   {/* ── Unified row — red VideoOff icon before date when no-stream ── */}
@@ -3852,7 +3972,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
                     <td className="px-2 py-2 text-center">
                       {row.hasData !== false ? (() => {
-                        const s = row.status != null ? row.status : (idx === lastEntryIdx ? 'Pending' : 'Success');
+                        const s = row.status != null ? row.status : (row.date === lastEntryDate ? 'Pending' : 'Success');
                         const cls = s === 'Success' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
                           : s === 'Failed' ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
                           : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700';
@@ -3881,7 +4001,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                       )}
                       {row.hasData !== false && isAdmin && (
                         <button
-                          onClick={() => onDeleteDay(row.dayEntries)}
+                          onClick={() => onDeleteDay(row.dayEntries, row.key)}
                           className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title="Delete all entries for this day"
                         >
