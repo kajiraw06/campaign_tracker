@@ -994,6 +994,48 @@ export default function App() {
     });
   }, []);
 
+  // --- FILE MANAGEMENT ---
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const importRawRef = useRef({ name: '', content: '', size: 0 });
+
+  const fetchUploadedFiles = async () => {
+    const { data: rows } = await supabase.from('uploaded_files').select('*').order('uploaded_at', { ascending: false });
+    if (rows) setUploadedFiles(rows);
+  };
+  useEffect(() => { fetchUploadedFiles(); }, []);
+
+  const saveFileRecord = async (extraInfo = '') => {
+    const { name, content, size } = importRawRef.current;
+    if (!name) return;
+    const record = {
+      file_name: name,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: user?.email ?? 'unknown',
+      file_size: size,
+      file_type: name.split('.').pop().toLowerCase(),
+      extra_info: extraInfo,
+      file_content: content,
+    };
+    const { data: saved } = await supabase.from('uploaded_files').insert([record]).select();
+    if (saved) setUploadedFiles(prev => [saved[0], ...prev]);
+  };
+
+  const handleDeleteFile = async (id) => {
+    if (!window.confirm('Remove this file record?')) return;
+    await supabase.from('uploaded_files').delete().eq('id', id);
+    setUploadedFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const handleDownloadFile = (file) => {
+    const blob = new Blob([file.file_content || ''], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.file_name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // --- ADS EDIT MODAL STATE ---
   const [showAdsModal, setShowAdsModal] = useState(false);
   const [adsEditKey, setAdsEditKey] = useState(null);
@@ -1164,11 +1206,28 @@ export default function App() {
   };
 
   // --- EDIT LOGGING ---
+  const cachedIP = useRef(null);
+  useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(d => { cachedIP.current = d.ip; })
+      .catch(() => { cachedIP.current = 'unavailable'; });
+  }, []);
+
+  const getDevicePlatform = () => {
+    const ua = navigator.userAgent || '';
+    if (/Mobi|Android|iPhone|iPad/i.test(ua)) return 'Mobile';
+    return 'Desktop';
+  };
+
   const logEdit = async (action, entryId, before, after) => {
     try {
+      const now = new Date();
       await supabase.from('edit_logs').insert([{
-        edited_at: new Date().toISOString(),
-        editor_email: user?.email ?? 'unknown',
+        edited_at: now.toISOString(),
+        actor: user?.email ?? 'unknown',
+        ip_address: cachedIP.current ?? 'fetching',
+        platform: getDevicePlatform(),
         action,
         entry_id: entryId ?? null,
         before: before ? JSON.stringify(before) : null,
@@ -1474,6 +1533,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
+      importRawRef.current = { name: file.name, content: text, size: file.size };
       if (importEODOnly && !isEODFormat(text)) {
         alert('❌ This file is not an UNRAVEL EOD TALENTS report.\nPlease upload the correct EOD CSV file.');
         return;
@@ -1549,6 +1609,7 @@ export default function App() {
     }
     setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
+    await saveFileRecord(`EOD · ${eodSite} · ${eodSections.filter(s=>s.selected).map(s=>s.editName).join(', ')}`);
     setImportStep(3);
   };
 
@@ -1561,6 +1622,7 @@ export default function App() {
     const { data: newRows, error } = await supabase.from('campaigns').insert(toImport).select();
     if (!error && newRows) setData(prev => [...prev, ...newRows]);
     setImportResult({ imported: toImport.length, skipped, mode: 'campaign' });
+    await saveFileRecord(`Campaign · ${toImport.length} rows`);
     setImportStep(3);
   };
 
@@ -1919,6 +1981,17 @@ export default function App() {
                   <CheckCircle size={13} /> Dedup
                 </button>
               )}
+              <button
+                onClick={() => setActiveView('files')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-sm whitespace-nowrap ${
+                  activeView === 'files'
+                    ? 'bg-sky-600 text-white border-sky-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-300'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                FILES
+              </button>
             </div>
 
             {/* Right: Date Picker + Filters */}
@@ -2461,6 +2534,100 @@ export default function App() {
           onMarkNoStream={handleMarkNoStream}
           onUnmarkNoStream={handleUnmarkNoStream}
         />
+      )}
+
+      {/* FILE MANAGEMENT VIEW */}
+      {activeView === 'files' && (
+        <div className={`${mw} py-8`}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">File Management</h2>
+                <span className="ml-1 px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold">{uploadedFiles.length}</span>
+              </div>
+              {isAdmin && (
+                <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm">
+                  <Upload size={13}/> Import File
+                </button>
+              )}
+            </div>
+
+            {/* Table */}
+            {uploadedFiles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <p className="text-sm text-slate-400 font-medium">No files uploaded yet</p>
+                <p className="text-xs text-slate-400">Files will appear here after you import a CSV</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-700/50 text-left">
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">File Name</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date &amp; Time Uploaded</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploaded By</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Size</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Info</th>
+                      <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {uploadedFiles.map((file, i) => (
+                      <tr key={file.id ?? i} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                              file.file_type === 'csv' ? 'bg-emerald-100 text-emerald-700'
+                              : file.file_type === 'xlsx' || file.file_type === 'xls' ? 'bg-blue-100 text-blue-700'
+                              : 'bg-slate-100 text-slate-600'
+                            }`}>{file.file_type || 'file'}</span>
+                            <span className="font-medium text-slate-800 dark:text-slate-200 text-xs truncate max-w-[220px]" title={file.file_name}>{file.file_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-500">{file.file_type?.toUpperCase() || '—'}</td>
+                        <td className="px-5 py-3 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          {file.uploaded_at ? new Date(file.uploaded_at).toLocaleString() : '—'}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-600 dark:text-slate-400">{file.uploaded_by || '—'}</td>
+                        <td className="px-5 py-3 text-xs text-slate-500">
+                          {file.file_size ? (file.file_size >= 1024 ? `${(file.file_size/1024).toFixed(1)} KB` : `${file.file_size} B`) : '—'}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-500 max-w-[160px] truncate" title={file.extra_info}>{file.extra_info || '—'}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {file.file_content && (
+                              <button
+                                onClick={() => handleDownloadFile(file)}
+                                title="Download"
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200 transition-colors"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteFile(file.id)}
+                                title="Delete"
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors"
+                              >
+                                <Trash2 size={11}/> Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ADD / EDIT MODAL */}
