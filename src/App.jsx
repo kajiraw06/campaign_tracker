@@ -1052,11 +1052,11 @@ export default function App() {
   useEffect(() => { fetchAdsReport(); }, []);
 
   // --- CREATOR PERF DATA ---
-  const [creatorPerfData, setCreatorPerfData] = useState(defaultCreatorPerfData);
+  const [creatorPerfData, setCreatorPerfData] = useState({});
   const fetchCreatorPerf = async () => {
     const { data: rows } = await supabase.from('creator_perf').select('*');
-    if (rows && rows.length > 0) {
-      const obj = { ...defaultCreatorPerfData };
+    if (rows) {
+      const obj = {};
       rows.forEach(r => {
         obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
       });
@@ -1350,7 +1350,7 @@ export default function App() {
         supabase.from('ads_report').delete().neq('key', '__placeholder__'),
         supabase.from('creator_perf').delete().neq('key', '__placeholder__'),
         supabase.from('no_stream').delete().neq('key', '__placeholder__'),
-        supabase.from('uploaded_files').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('uploaded_files').delete().not('file_name', 'is', null),
       ]);
       setData([]);
       setAdsReportData({});
@@ -1606,19 +1606,21 @@ export default function App() {
     if (lines.length < 2) return { headers: [], rows: [] };
     const delim = lines[0].split('\t').length > lines[0].split(',').length ? '\t' : ',';
 
-    // Detect the actual header row — some CSVs (e.g. MEDIA BUYER tracker) have a title row
-    // like "MEDIA BUYER'S TRACKER,,..." before the real column headers.
-    // Scan the first 10 lines for the one that contains recognised field keywords.
-    const headerKeywords = ['date','name','talent','streamer','cost','spend','format','link','reg','dep','site'];
+    // Detect the actual header row — some CSVs (e.g. MEDIA BUYER tracker) have title rows
+    // like "MEDIA BUYER'S TRACKER,,,,,,,,TALENT MANAGER'S TRACKER,..." before the real headers.
+    // Score each of the first 10 lines by how many cells match recognised field keywords,
+    // then pick the row with the highest score (avoids false matches on title rows).
+    const headerKeywords = ['date','livestreamdate','name','talentsname','talent','streamer','cost','spend','format','link','reg','dep','site'];
     const normH = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
     let headerLineIdx = 0;
+    let bestScore = 0;
     for (let i = 0; i < Math.min(lines.length, 10); i++) {
       const cells = parseCsvLine(lines[i], delim);
-      const nonEmpty = cells.filter(c => c.trim());
-      if (nonEmpty.length >= 2 && nonEmpty.some(c => headerKeywords.some(k => normH(c).includes(k)))) {
-        headerLineIdx = i;
-        break;
-      }
+      const score = cells.filter(c => c.trim()).reduce((acc, c) => {
+        const n = normH(c);
+        return acc + (headerKeywords.some(k => n === k || n.includes(k)) ? 1 : 0);
+      }, 0);
+      if (score > bestScore) { bestScore = score; headerLineIdx = i; }
     }
 
     const headers = parseCsvLine(lines[headerLineIdx], delim);
@@ -2041,7 +2043,7 @@ export default function App() {
   }, [streamers, filterStreamer]);
 
   const perfSites = Object.keys(creatorPerfData).map(k => k.split('|')[2]).filter(Boolean);
-  const sites = [...new Set([...data.map(d => d.site), ...perfSites, 'COW', 'T2B'])].filter(s => s && s !== 'PP').sort();
+  const sites = [...new Set([...data.map(d => d.site), ...perfSites])].filter(s => s && s !== 'PP').sort();
   const types = ["Live", "Reels"];
 
   // Layout wrapper class — stretched = full-width, compact = boxed + smaller text
@@ -2924,19 +2926,19 @@ export default function App() {
       {/* CSV IMPORT MODAL */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeImportModal()}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col modal-content">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col modal-content">
             {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-700">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> {importEODOnly ? 'Import EOD Report' : 'Import CSV'}</h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> {importEODOnly ? 'Import EOD Report' : 'Import CSV'}</h2>
+                <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
                   {importStep === 1 && (importEODOnly ? 'UNRAVEL EOD TALENTS files only' : 'Drop any CSV — format is detected automatically')}
                   {importStep === 2 && importMode === 'eod'      && `EOD Report detected — ${eodSections.length} streamer(s) found`}
                   {importStep === 2 && importMode === 'campaign' && `Campaign data — ${campPreview.length} rows ready`}
                   {importStep === 3 && 'Done!'}
                 </p>
               </div>
-              <button onClick={closeImportModal} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+              <button onClick={closeImportModal} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
             </div>
 
             <div className="overflow-y-auto flex-1 px-6 py-4">
@@ -2945,7 +2947,7 @@ export default function App() {
               {importStep === 1 && (
                 <div
                   className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
-                    importDragOver ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300 hover:bg-slate-50'
+                    importDragOver ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-600 hover:border-emerald-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                   onClick={() => importFileRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); setImportDragOver(true); }}
@@ -2953,15 +2955,15 @@ export default function App() {
                   onDrop={(e) => { e.preventDefault(); setImportDragOver(false); handleImportFile(e.dataTransfer.files[0]); }}
                 >
                   <Upload size={40} className="mx-auto text-slate-300 mb-3"/>
-                  <p className="text-sm font-semibold text-slate-600 mb-1">Click anywhere here or drag & drop a CSV file</p>
-                  <p className="text-xs text-slate-400 mb-4">
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-1">Click anywhere here or drag & drop a CSV file</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-400 mb-4">
                     {importEODOnly ? 'Only UNRAVEL EOD TALENTS CSV files are accepted here' : 'EOD reports and campaign CSVs are both supported'}
                   </p>
                   <input ref={importFileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={(e) => handleImportFile(e.target.files[0])}/>
                   <div className="flex justify-center gap-4 text-[11px] text-slate-400 mt-4">
                     {importEODOnly
                       ? <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 rounded-full font-semibold">UNRAVEL EOD TALENTS - *.csv only</span>
-                      : <><span className="bg-slate-100 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span><span className="bg-slate-100 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span></>
+                      : <><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span></>
                     }
                   </div>
                 </div>
@@ -2972,7 +2974,7 @@ export default function App() {
                 <div className="space-y-4">
                   {/* Site selector */}
                   <div className="flex items-center gap-3">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Site:</label>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Site:</label>
                     <div className="flex gap-2">
                       {['WFL','RLM','T2B','COW'].map(s => (
                         <button
@@ -2981,7 +2983,7 @@ export default function App() {
                           className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
                             eodSite === s
                               ? 'bg-indigo-600 text-white border-indigo-600'
-                              : 'border-slate-200 text-slate-500 hover:border-indigo-300'
+                              : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-300 hover:border-indigo-300'
                           }`}
                         >{s}</button>
                       ))}
@@ -2995,35 +2997,35 @@ export default function App() {
                     {[...new Set(Object.values(STREAMER_ALIASES))].sort().map(n => <option key={n} value={n}/>)}
                     {streamers.map(n => <option key={'k-'+n} value={n}/>)}
                   </datalist>
-                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
                     <table className="w-full text-xs">
-                      <thead className="bg-slate-50">
+                      <thead className="bg-slate-50 dark:bg-slate-700">
                         <tr>
                           <th className="px-3 py-2 w-8">
                             <input type="checkbox" checked={eodSections.every(s => s.selected)}
                               onChange={e => setEodSections(prev => prev.map(s => ({ ...s, selected: e.target.checked })))}
                               className="rounded"/>
                           </th>
-                          <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Streamer (from file)</th>
-                          <th className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Import as</th>
-                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Rows</th>
-                          <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Date range</th>
+                          <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Streamer (from file)</th>
+                          <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Import as</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Status</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Rows</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Date range</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                         {eodSections.map((sec, i) => {
                           const dates = sec.rows.map(r => r.date).filter(Boolean).sort();
                           const dateRange = dates.length ? `${dates[0]} → ${dates[dates.length-1]}` : '—';
                           const isAutoMatched = sec.autoMatched;
                           return (
-                            <tr key={i} className={sec.selected ? (isAutoMatched ? 'hover:bg-slate-50' : 'bg-amber-50/40 hover:bg-amber-50') : 'opacity-40'}>
+                            <tr key={i} className={sec.selected ? (isAutoMatched ? 'hover:bg-slate-50 dark:hover:bg-slate-700' : 'bg-amber-50/40 dark:bg-amber-900/20 hover:bg-amber-50 dark:hover:bg-amber-900/30') : 'opacity-40'}>
                               <td className="px-3 py-2 text-center">
                                 <input type="checkbox" checked={sec.selected}
                                   onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, selected: e.target.checked } : s))}
                                   className="rounded"/>
                               </td>
-                              <td className="px-3 py-2 font-medium text-slate-500">{sec.streamer}</td>
+                              <td className="px-3 py-2 font-medium text-slate-500 dark:text-slate-200">{sec.streamer}</td>
                               <td className="px-3 py-2">
                                 <input
                                   type="text"
@@ -3031,10 +3033,10 @@ export default function App() {
                                   list="eod-streamer-names"
                                   onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, editName: e.target.value, autoMatched: true } : s))}
                                   placeholder="Type streamer name…"
-                                  className={`border rounded px-2 py-0.5 w-36 text-xs focus:outline-none focus:ring-1 ${
+                                  className={`border rounded px-2 py-0.5 w-36 text-xs focus:outline-none focus:ring-1 bg-white dark:bg-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
                                     isAutoMatched
-                                      ? 'border-emerald-300 focus:ring-emerald-400'
-                                      : 'border-amber-300 focus:ring-amber-400'
+                                      ? 'border-emerald-300 dark:border-emerald-500 focus:ring-emerald-400'
+                                      : 'border-amber-300 dark:border-amber-500 focus:ring-amber-400'
                                   }`}
                                 />
                               </td>
@@ -3044,8 +3046,8 @@ export default function App() {
                                   : <span className="inline-flex items-center gap-0.5 bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full"><AlertTriangle size={10}/> Review</span>
                                 }
                               </td>
-                              <td className="px-3 py-2 text-center text-slate-500">{sec.rows.length}</td>
-                              <td className="px-3 py-2 text-center text-slate-400 whitespace-nowrap">{dateRange}</td>
+                              <td className="px-3 py-2 text-center text-slate-500 dark:text-slate-300">{sec.rows.length}</td>
+                              <td className="px-3 py-2 text-center text-slate-400 dark:text-slate-400 whitespace-nowrap">{dateRange}</td>
                             </tr>
                           );
                         })}
@@ -3053,12 +3055,12 @@ export default function App() {
                     </table>
                   </div>
                   {eodSections.some(s => s.selected && !s.autoMatched) && (
-                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                    <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-600 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
                       <AlertTriangle size={13} className="mt-0.5 shrink-0"/>
                       <span><strong>Review required:</strong> Some streamers could not be auto-identified. Type the correct name in the "Import as" field — it will auto-suggest known names.</span>
                     </div>
                   )}
-                  <p className="text-[11px] text-slate-400">Data saves to Creator Performance (EOD) tab. Existing entries for the same date+streamer+site are overwritten.</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Data saves to Creator Performance (EOD) tab. Existing entries for the same date+streamer+site are overwritten.</p>
                 </div>
               )}
 
@@ -3074,12 +3076,12 @@ export default function App() {
                 return (
                   <div className="space-y-5">
                     <div>
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Column Mapping</h3>
+                      <h3 className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-3">Column Mapping</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {campAllFields.map(field => (
                           <div key={field}>
                             <label className={`text-xs font-semibold uppercase tracking-wide ${
-                              campRequiredFields.includes(field) ? 'text-indigo-600' : 'text-slate-400'
+                              campRequiredFields.includes(field) ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'
                             }`}>
                               {field} {campRequiredFields.includes(field) && <span className="text-red-400">*</span>}
                             </label>
@@ -3095,7 +3097,7 @@ export default function App() {
                                   setCampMapping(updated);
                                   setCampPreview(buildCampaignPreview(campRawRows, updated));
                                 }}
-                                className="mt-1 w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                className="mt-1 w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
                               >
                                 <option value="">— skip —</option>
                                 {campHeaders.map((h, idx) => (
@@ -3112,29 +3114,29 @@ export default function App() {
                       {dupCount > 0 && <span className="bg-amber-50 text-amber-700 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1"><AlertTriangle size={12}/> {dupCount} duplicates</span>}
                     </div>
                     <div>
-                      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Preview ({campPreview.length} rows)</h3>
-                      <div className="overflow-x-auto max-h-48 rounded-lg border border-slate-200">
+                      <h3 className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-2">Preview ({campPreview.length} rows)</h3>
+                      <div className="overflow-x-auto max-h-48 rounded-lg border border-slate-200 dark:border-slate-600">
                         <table className="w-full text-xs">
-                          <thead className="bg-slate-50 sticky top-0">
+                          <thead className="bg-slate-50 dark:bg-slate-700 sticky top-0">
                             <tr>
                               {['date','site','streamer','spend','reg','dep','type'].map(f => (
-                                <th key={f} className="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{f}</th>
+                                <th key={f} className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide whitespace-nowrap">{f}</th>
                               ))}
-                              <th className="px-3 py-2 text-center font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                              <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                             {campPreview.map((row, i) => {
                               const dup = dupCheck(row);
                               return (
-                                <tr key={i} className={dup ? 'bg-amber-50' : 'hover:bg-slate-50'}>
-                                  <td className="px-3 py-1.5 whitespace-nowrap">{row.date}</td>
-                                  <td className="px-3 py-1.5">{row.site}</td>
-                                  <td className="px-3 py-1.5">{row.streamer}</td>
-                                  <td className="px-3 py-1.5 text-right">{row.spend?.toLocaleString()}</td>
-                                  <td className="px-3 py-1.5 text-right">{row.reg}</td>
-                                  <td className="px-3 py-1.5 text-right">{row.dep?.toLocaleString()}</td>
-                                  <td className="px-3 py-1.5">{row.type}</td>
+                                <tr key={i} className={dup ? 'bg-amber-50 dark:bg-amber-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}>
+                                  <td className="px-3 py-1.5 whitespace-nowrap dark:text-slate-200">{row.date}</td>
+                                  <td className="px-3 py-1.5 dark:text-slate-200">{row.site}</td>
+                                  <td className="px-3 py-1.5 dark:text-slate-200">{row.streamer}</td>
+                                  <td className="px-3 py-1.5 text-right dark:text-slate-200">{row.spend?.toLocaleString()}</td>
+                                  <td className="px-3 py-1.5 text-right dark:text-slate-200">{row.reg}</td>
+                                  <td className="px-3 py-1.5 text-right dark:text-slate-200">{row.dep?.toLocaleString()}</td>
+                                  <td className="px-3 py-1.5 dark:text-slate-200">{row.type}</td>
                                   <td className="px-3 py-1.5 text-center">
                                     {dup ? <span className="text-amber-600 font-semibold">Duplicate</span> : <span className="text-emerald-600 font-semibold">New</span>}
                                   </td>
@@ -3153,10 +3155,10 @@ export default function App() {
               {importStep === 3 && importResult && (
                 <div className="text-center py-10">
                   <CheckCircle size={52} className="mx-auto text-emerald-500 mb-4"/>
-                  <h3 className="text-lg font-bold text-slate-800 mb-2">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">
                     {importResult.mode === 'eod' ? 'EOD Data Imported!' : 'Campaign Data Imported!'}
                   </h3>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
                     <span className="font-bold text-emerald-600">{importResult.imported} {importResult.mode === 'eod' ? 'day-entries' : 'rows'}</span> saved successfully.
                     {importResult.skipped > 0 && <> <span className="font-bold text-amber-600">{importResult.skipped} duplicates</span> skipped.</>}
                   </p>
@@ -3168,16 +3170,16 @@ export default function App() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center gap-3">
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center gap-3">
               {importStep === 1 && (
                 <>
-                  <span className="text-xs text-slate-400">Supports .csv and .tsv files</span>
-                  <button onClick={closeImportModal} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">Cancel</button>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Supports .csv and .tsv files</span>
+                  <button onClick={closeImportModal} className="border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</button>
                 </>
               )}
               {importStep === 2 && importMode === 'eod' && (
                 <>
-                  <button onClick={() => setImportStep(1)} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">← Back</button>
+                  <button onClick={() => setImportStep(1)} className="border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-700">← Back</button>
                   <button
                     onClick={handleEODImport}
                     disabled={!eodSite || eodSections.every(s => !s.selected)}
@@ -3198,13 +3200,13 @@ export default function App() {
                 });
                 return (
                   <>
-                    <button onClick={() => setImportStep(1)} className="border border-slate-200 text-slate-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50">← Back</button>
+                    <button onClick={() => setImportStep(1)} className="border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-700">← Back</button>
                     <div className="flex gap-2">
                       {dupCount > 0 && (
                         <button
                           onClick={() => handleCampaignImport(true)}
                           disabled={missingRequired}
-                          className="flex items-center gap-1.5 border border-amber-400 text-amber-700 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1.5 border border-amber-400 dark:border-amber-500 text-amber-700 dark:text-amber-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <AlertTriangle size={14}/> Skip Duplicates ({campPreview.length - dupCount})
                         </button>
