@@ -2288,16 +2288,16 @@ export default function App() {
             })()}
           </div>
           {(activeView === 'report' && reportSubTab === 'creator') && (
-            <div className="flex items-center justify-center gap-4 pt-1">
-              <div className="flex items-center gap-2 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg px-3 py-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-                <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">Total Streams</span>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{creatorSummary.streams ?? 0}</span>
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <div className="flex items-center gap-2.5 bg-gradient-to-r from-indigo-600 to-indigo-500 rounded-xl px-4 py-1.5 shadow-sm shadow-indigo-200 dark:shadow-indigo-900/40">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-200 shrink-0"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                <span className="text-[11px] font-semibold text-indigo-200 uppercase tracking-wide">Streams</span>
+                <span className="text-sm font-black text-white">{creatorSummary.streams ?? 0}</span>
               </div>
-              <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg px-3 py-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-500"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg>
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Total Reels</span>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{creatorSummary.reels ?? 0}</span>
+              <div className="flex items-center gap-2.5 bg-gradient-to-r from-violet-600 to-violet-500 rounded-xl px-4 py-1.5 shadow-sm shadow-violet-200 dark:shadow-violet-900/40">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-violet-200 shrink-0"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/></svg>
+                <span className="text-[11px] font-semibold text-violet-200 uppercase tracking-wide">Reels</span>
+                <span className="text-sm font-black text-white">{creatorSummary.reels ?? 0}</span>
               </div>
             </div>
           )}
