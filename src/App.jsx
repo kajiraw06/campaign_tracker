@@ -1342,6 +1342,28 @@ export default function App() {
     }
   };
 
+  const handleClearAllData = async () => {
+    setClearingData(true);
+    try {
+      await Promise.all([
+        supabase.from('campaigns').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.from('ads_report').delete().neq('key', '__placeholder__'),
+        supabase.from('creator_perf').delete().neq('key', '__placeholder__'),
+        supabase.from('no_stream').delete().neq('key', '__placeholder__'),
+        supabase.from('uploaded_files').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      ]);
+      setData([]);
+      setAdsReportData({});
+      setCreatorPerfData({});
+      setNoStreamData({});
+      setUploadedFiles([]);
+    } finally {
+      setClearingData(false);
+      setShowClearModal(false);
+      setClearConfirmText('');
+    }
+  };
+
   // --- EDIT LOGGING ---
   const cachedIP = useRef(null);
   useEffect(() => {
@@ -1640,6 +1662,11 @@ export default function App() {
       link:     mapping.link !== undefined ? (row[parseInt(mapping.link)] || '').trim() : '',
     })).filter(r => r.date && r.streamer);
   }
+
+  // ─── CLEAR ALL DATA STATE ──────────────────────────────────────────────────
+  const [showClearModal,    setShowClearModal]    = useState(false);
+  const [clearingData,      setClearingData]      = useState(false);
+  const [clearConfirmText,  setClearConfirmText]  = useState('');
 
   // ─── IMPORT STATE ─────────────────────────────────────────────────────────
   const [showImportModal, setShowImportModal]   = useState(false);
@@ -2125,6 +2152,11 @@ export default function App() {
               {isAdmin && (
                 <button onClick={handleDeduplicateData} className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
                   <CheckCircle size={13} /> Dedup
+                </button>
+              )}
+              {isAdmin && (
+                <button onClick={() => setShowClearModal(true)} className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
+                  <Trash2 size={13} /> Clear All Data
                 </button>
               )}
               <button
@@ -2832,6 +2864,57 @@ export default function App() {
               <button onClick={() => setShowModal(false)} className="flex-1 border border-slate-200 text-slate-600 font-semibold py-2 rounded-lg text-sm hover:bg-slate-50">Cancel</button>
               <button onClick={handleSave} disabled={!formValues.date || !formValues.streamer} className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-lg text-sm transition-colors">
                 {editingId !== null ? 'Save Changes' : 'Add Entry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CLEAR ALL DATA CONFIRMATION MODAL */}
+      {showClearModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
+                <AlertTriangle size={20} className="text-red-600"/>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Clear All Data</h2>
+                <p className="text-xs text-slate-500 mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              This will permanently delete <span className="font-bold text-red-600">all campaigns, ads reports, creator performance, no-stream flags, and uploaded file records</span> from the database. Use this before your boss sends new CSVs to start fresh.
+            </p>
+            <div className="mb-6">
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                Type <span className="font-bold text-red-600 tracking-widest">CONFIRM</span> to enable the button
+              </label>
+              <input
+                type="text"
+                value={clearConfirmText}
+                onChange={e => setClearConfirmText(e.target.value)}
+                placeholder="Type CONFIRM here"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-300 transition-all"
+                disabled={clearingData}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowClearModal(false); setClearConfirmText(''); }}
+                disabled={clearingData}
+                className="flex-1 border border-slate-200 text-slate-600 font-semibold py-2 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-50"
+              >Cancel</button>
+              <button
+                onClick={handleClearAllData}
+                disabled={clearingData || clearConfirmText !== 'CONFIRM'}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                {clearingData
+                  ? <><svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Clearing…</>
+                  : <><Trash2 size={14}/> Yes, Clear Everything</>
+                }
               </button>
             </div>
           </div>
