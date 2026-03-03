@@ -915,7 +915,7 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
 
 export default function App() {
   // --- AUTH ---
-  const { role, signOut } = useAuth();
+  const { role, signOut, user } = useAuth();
   const isAdmin = role === 'admin';
 
   // --- DATA STATE (Supabase) ---
@@ -948,6 +948,10 @@ export default function App() {
   // --- LAYOUT MODE ---
   const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem('layoutMode') || 'stretched');
   useEffect(() => { localStorage.setItem('layoutMode', layoutMode); }, [layoutMode]);
+
+  // --- DISCLAIMER ---
+  const [showDisclaimer, setShowDisclaimer] = useState(() => localStorage.getItem('disclaimerDismissed') !== 'true');
+  const dismissDisclaimer = () => { setShowDisclaimer(false); localStorage.setItem('disclaimerDismissed', 'true'); };
 
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState({});
@@ -1103,10 +1107,14 @@ export default function App() {
         const updated = [...data];
         updated[editingId] = { ...item, ...entry };
         setData(updated);
+        await logEdit('edit', item.id, item, entry);
       }
     } else {
       const { data: newRows, error } = await supabase.from('campaigns').insert([entry]).select();
-      if (!error && newRows) setData(prev => [...prev, newRows[0]]);
+      if (!error && newRows) {
+        setData(prev => [...prev, newRows[0]]);
+        await logEdit('add', newRows[0]?.id, null, entry);
+      }
     }
     setShowModal(false);
   };
@@ -1114,7 +1122,10 @@ export default function App() {
   const handleDelete = async (item) => {
     if (window.confirm('Delete this entry?')) {
       const { error } = await supabase.from('campaigns').delete().eq('id', item.id);
-      if (!error) setData(prev => prev.filter(d => d.id !== item.id));
+      if (!error) {
+        setData(prev => prev.filter(d => d.id !== item.id));
+        await logEdit('delete', item.id, item, null);
+      }
     }
   };
 
@@ -1150,6 +1161,20 @@ export default function App() {
       const { error } = await supabase.from('campaigns').delete().in('id', toRemove);
       if (!error) setData(prev => prev.filter(d => !toRemove.includes(d.id)));
     }
+  };
+
+  // --- EDIT LOGGING ---
+  const logEdit = async (action, entryId, before, after) => {
+    try {
+      await supabase.from('edit_logs').insert([{
+        edited_at: new Date().toISOString(),
+        editor_email: user?.email ?? 'unknown',
+        action,
+        entry_id: entryId ?? null,
+        before: before ? JSON.stringify(before) : null,
+        after: after ? JSON.stringify(after) : null,
+      }]);
+    } catch (_) {}
   };
 
   // ─── CSV HELPERS ──────────────────────────────────────────────────────────
@@ -1946,6 +1971,24 @@ export default function App() {
 
         </div>
       </div>
+
+      {/* DISCLAIMER BANNER */}
+      {showDisclaimer && (
+        <div className="bg-violet-50 border-b border-violet-200">
+          <div className={`${mwHdr} py-2`}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={15} className="text-violet-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-violet-700 flex-1 leading-relaxed">
+                <span className="font-bold">Disclaimer:</span>{' '}
+                <em>The data presented in this Campaign Performance Tracker is based solely on the CSV files or Google Sheets submitted by the admin on a daily basis. This tracker is not directly connected to or integrated with any Whitelabel sites indicated within this system. All figures are manually sourced and may not reflect real-time data from those platforms.</em>
+              </p>
+              <button onClick={dismissDisclaimer} title="Dismiss" className="text-violet-400 hover:text-violet-600 shrink-0 mt-0.5">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* STATS CARDS */}
       <div className={`${mwHdr} py-3`}>
