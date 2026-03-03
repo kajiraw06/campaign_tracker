@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Compact mode — shrinks all rem-based text proportionally */
+html.compact { font-size: 15px; }
+
 /* ==============================================
    DARK MODE - DEEP NAVY DESIGN SYSTEM
    Base:    #080d1a  page bg
@@ -178,5 +181,124 @@
 /* Smooth transitions */
 html { transition: background-color 0.3s ease; }
 *, *::before, *::after {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease, transform 0.12s ease, opacity 0.15s ease;
 }
+
+/* ══════════════════════════════════════════════
+   CUSTOM SELECT DROPDOWNS
+   ══════════════════════════════════════════════ */
+
+/* Remove default arrow, add custom chevron */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px !important;
+  cursor: pointer;
+}
+
+/* Option items — light mode */
+select option {
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+}
+select option:hover,
+select option:focus,
+select option:checked {
+  background: linear-gradient(90deg, #6366f1, #7c3aed) !important;
+  color: #ffffff !important;
+}
+
+/* Dark mode selects */
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  color: #c7d8f0 !important;
+}
+.dark select option {
+  background-color: #0e1525;
+  color: #c7d8f0;
+}
+.dark select option:checked {
+  background-color: #6366f1 !important;
+  color: #fff !important;
+}
+
+
+/* ── Custom dropdown panel pop ── */
+@keyframes dropdownPop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── View fade-slide in ── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.view-enter {
+  animation: fadeSlideUp 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Staggered card entrance ── */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.card-enter {
+  animation: cardIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.card-enter:nth-child(1)  { animation-delay: 0.03s; }
+.card-enter:nth-child(2)  { animation-delay: 0.06s; }
+.card-enter:nth-child(3)  { animation-delay: 0.09s; }
+.card-enter:nth-child(4)  { animation-delay: 0.12s; }
+.card-enter:nth-child(5)  { animation-delay: 0.15s; }
+.card-enter:nth-child(6)  { animation-delay: 0.18s; }
+.card-enter:nth-child(7)  { animation-delay: 0.21s; }
+
+/* ── Modal pop ── */
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.modal-backdrop { animation: backdropIn 0.18s ease both; }
+.modal-content  { animation: modalPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Disclaimer slide down ── */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.disclaimer-enter { animation: slideDown 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Metric card hover lift ── */
+.metric-card {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease !important;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -4px rgba(99,102,241,0.15), 0 2px 8px -2px rgba(0,0,0,0.08);
+}
+
+/* ── Button press ── */
+button:active:not(:disabled) { transform: scale(0.97); }
+
+/* ── Table row hover ── */
+tbody tr {
+  transition: background-color 0.12s ease !important;
+}
+
+/* ── Spin animation for refresh ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin { animation: spin 0.7s linear infinite; }

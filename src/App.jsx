@@ -913,6 +913,60 @@ function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDa
   );
 }
 
+// ─── CUSTOM FILTER DROPDOWN ──────────────────────────────────────────────────
+function FilterDropdown({ icon, value, options, allLabel, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const displayLabel = value === 'All' ? allLabel : value;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer select-none ${
+          open ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-700'
+        }`}
+      >
+        {icon}
+        <span className="max-w-[110px] truncate">{displayLabel}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-indigo-500' : 'text-slate-400'}`}><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-1.5 min-w-[140px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl shadow-indigo-100/40 dark:shadow-black/30 overflow-hidden z-50 py-1" style={{animation:'dropdownPop 0.15s cubic-bezier(0.22,1,0.36,1) both'}}>
+          {['All', ...options].map((opt) => {
+            const isAll = opt === 'All';
+            const label = isAll ? allLabel : opt;
+            const active = value === opt;
+            return (
+              <button
+                key={opt}
+                onClick={() => { onChange(opt); setOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2 transition-colors ${
+                  active
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300'
+                }`}
+              >
+                {active && <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                {!active && <span className="w-[10px]" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   // --- AUTH ---
   const { role, signOut, user } = useAuth();
@@ -946,8 +1000,15 @@ export default function App() {
   }, [darkMode]);
 
   // --- LAYOUT MODE ---
-  const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem('layoutMode') || 'stretched');
-  useEffect(() => { localStorage.setItem('layoutMode', layoutMode); }, [layoutMode]);
+  const [layoutMode, setLayoutMode] = useState(() => {
+    const saved = localStorage.getItem('layoutMode') || 'stretched';
+    document.documentElement.classList.toggle('compact', saved === 'compact');
+    return saved;
+  });
+  useEffect(() => {
+    localStorage.setItem('layoutMode', layoutMode);
+    document.documentElement.classList.toggle('compact', layoutMode === 'compact');
+  }, [layoutMode]);
 
   // --- DISCLAIMER ---
   const [showDisclaimer, setShowDisclaimer] = useState(() => localStorage.getItem('disclaimerDismissed') !== 'true');
@@ -955,46 +1016,41 @@ export default function App() {
 
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState({});
-
-  useEffect(() => {
-    supabase.from('ads_report').select('*').then(({ data: rows }) => {
-      if (rows) {
-        const obj = {};
-        rows.forEach(r => { obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, boosting: r.boosting }; });
-        setAdsReportData(obj);
-      }
-    });
-  }, []);
+  const fetchAdsReport = async () => {
+    const { data: rows } = await supabase.from('ads_report').select('*');
+    if (rows) {
+      const obj = {};
+      rows.forEach(r => { obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, boosting: r.boosting }; });
+      setAdsReportData(obj);
+    }
+  };
+  useEffect(() => { fetchAdsReport(); }, []);
 
   // --- CREATOR PERF DATA ---
   const [creatorPerfData, setCreatorPerfData] = useState(defaultCreatorPerfData);
-
-  useEffect(() => {
-    supabase.from('creator_perf').select('*').then(({ data: rows }) => {
-      if (rows && rows.length > 0) {
-        const obj = { ...defaultCreatorPerfData };
-        rows.forEach(r => {
-          obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
-        });
-        setCreatorPerfData(obj);
-      }
-    });
-  }, []);
+  const fetchCreatorPerf = async () => {
+    const { data: rows } = await supabase.from('creator_perf').select('*');
+    if (rows && rows.length > 0) {
+      const obj = { ...defaultCreatorPerfData };
+      rows.forEach(r => {
+        obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
+      });
+      setCreatorPerfData(obj);
+    }
+  };
+  useEffect(() => { fetchCreatorPerf(); }, []);
 
   // --- NO STREAM DATA ---
   const [noStreamData, setNoStreamData] = useState({});
-
-  useEffect(() => {
-    supabase.from('no_stream').select('*').then(({ data: rows }) => {
-      if (rows) {
-        const obj = {};
-        rows.forEach(r => { obj[r.key] = true; });
-        setNoStreamData(obj);
-      }
-    });
-  }, []);
-
-  // --- FILE MANAGEMENT ---
+  const fetchNoStream = async () => {
+    const { data: rows } = await supabase.from('no_stream').select('*');
+    if (rows) {
+      const obj = {};
+      rows.forEach(r => { obj[r.key] = true; });
+      setNoStreamData(obj);
+    }
+  };
+  useEffect(() => { fetchNoStream(); }, []);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const importRawRef = useRef({ name: '', content: '', size: 0 });
 
@@ -1003,6 +1059,14 @@ export default function App() {
     if (rows) setUploadedFiles(rows);
   };
   useEffect(() => { fetchUploadedFiles(); }, []);
+
+  // --- REFRESH ---
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchData(), fetchAdsReport(), fetchCreatorPerf(), fetchNoStream(), fetchUploadedFiles()]);
+    setRefreshing(false);
+  };
 
   const saveFileRecord = async (extraInfo = '') => {
     const { name, content, size } = importRawRef.current;
@@ -1881,11 +1945,11 @@ export default function App() {
   const types = ["Live", "Reels"];
 
   // Layout wrapper class — stretched = full-width, compact = boxed + smaller text
-  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
-  const mwHdr = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-8';
+  const mw = layoutMode === 'compact' ? 'max-w-7xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-6';
+  const mwHdr = layoutMode === 'compact' ? 'max-w-7xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-8';
 
   return (
-    <div className={`bg-slate-50 min-h-screen font-sans text-slate-900 ${layoutMode === 'compact' ? 'text-[0.9em]' : ''}`}>
+    <div className="bg-slate-50 min-h-screen font-sans text-slate-900">
       
       {/* STICKY HEADER WRAPPER */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
@@ -1893,12 +1957,32 @@ export default function App() {
 
           {/* ROW 1 — Brand + User Controls */}
           <div className="flex items-center justify-between h-14 gap-4">
-            {/* Left: Logo + Title */}
+            {/* Left: Logo + Title + Quick Actions */}
             <div className="flex items-center gap-2.5 shrink-0">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-600 shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
               </div>
               <h1 className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">Campaign Tracker</h1>
+              {/* Refresh */}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                title="Refresh all data"
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={refreshing ? 'animate-spin' : ''}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode(d => !d)}
+                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+              >
+                {darkMode
+                  ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                }
+              </button>
             </div>
 
             {/* Center: Tab Navigation */}
@@ -1923,17 +2007,6 @@ export default function App() {
 
             {/* Right: User Controls */}
             <div className="flex items-center gap-2 shrink-0">
-              {/* Dark mode toggle */}
-              <button
-                onClick={() => setDarkMode(d => !d)}
-                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
-              >
-                {darkMode
-                  ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                  : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                }
-              </button>
               {/* Layout toggle */}
               <button
                 onClick={() => setLayoutMode(m => m === 'stretched' ? 'compact' : 'stretched')}
@@ -1985,12 +2058,17 @@ export default function App() {
                 onClick={() => setActiveView('files')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-sm whitespace-nowrap ${
                   activeView === 'files'
-                    ? 'bg-sky-600 text-white border-sky-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-300'
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-md shadow-indigo-200'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50'
                 }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 FILES
+                {uploadedFiles.length > 0 && (
+                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none ${
+                    activeView === 'files' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-600'
+                  }`}>{uploadedFiles.length}</span>
+                )}
               </button>
             </div>
 
@@ -2005,38 +2083,28 @@ export default function App() {
                 maxDate={maxDate}
               />
               {!(activeView === 'report' && reportSubTab === 'creator') && (
-                <div className="flex items-center gap-0 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden divide-x divide-slate-200">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5">
-                    <Filter size={13} className="text-slate-400" />
-                    <select
-                      value={filterSite}
-                      onChange={(e) => setFilterSite(e.target.value)}
-                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer"
-                    >
-                      <option value="All">All Sites</option>
-                      {sites.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5">
-                    <select
-                      value={filterStreamer}
-                      onChange={(e) => setFilterStreamer(e.target.value)}
-                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer max-w-[110px] truncate"
-                    >
-                      <option value="All">All Streamers</option>
-                      {streamers.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5">
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="bg-transparent text-xs font-medium focus:outline-none text-slate-700 cursor-pointer"
-                    >
-                      <option value="All">All Formats</option>
-                      {types.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                <div className="flex items-center gap-0 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible divide-x divide-slate-100 dark:divide-slate-700">
+                  <FilterDropdown
+                    icon={<Filter size={12} className="text-indigo-400 shrink-0" />}
+                    value={filterSite}
+                    options={sites}
+                    allLabel="All Sites"
+                    onChange={setFilterSite}
+                  />
+                  <FilterDropdown
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400 shrink-0"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
+                    value={filterStreamer}
+                    options={streamers}
+                    allLabel="All Streamers"
+                    onChange={setFilterStreamer}
+                  />
+                  <FilterDropdown
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400 shrink-0"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>}
+                    value={filterType}
+                    options={types}
+                    allLabel="All Formats"
+                    onChange={setFilterType}
+                  />
                 </div>
               )}
             </div>
@@ -2047,7 +2115,7 @@ export default function App() {
 
       {/* DISCLAIMER BANNER */}
       {showDisclaimer && (
-        <div className="bg-violet-50 border-b border-violet-200">
+        <div className="bg-violet-50 border-b border-violet-200 disclaimer-enter">
           <div className={`${mwHdr} py-2`}>
             <div className="flex items-start gap-3">
               <AlertTriangle size={15} className="text-violet-500 mt-0.5 shrink-0" />
@@ -2163,7 +2231,7 @@ export default function App() {
         </div>
 
       {(!startDate || !endDate) && (
-        <div className={`${mw} py-8`}>
+        <div className={`${mw} py-8 view-enter`}>
           <div className="flex flex-col items-center justify-center gap-4 py-24 bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
               <Calendar size={28} className="text-indigo-500" />
@@ -2177,7 +2245,7 @@ export default function App() {
       )}
 
       {startDate && endDate && activeView === 'dashboard' && (
-      <div className={`${mw} py-8 space-y-8`}>
+      <div className={`${mw} py-8 space-y-8 view-enter`}>
         
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           {/* ── Chart header ── */}
@@ -2469,7 +2537,7 @@ export default function App() {
       )}
 
       {startDate && endDate && activeView === 'report' && (
-        <div className={`${mw} pt-2`}>
+        <div className={`${mw} pt-2 view-enter`}>
           {/* Sub-tab bar */}
           <div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-fit mb-6">
             <button
@@ -2538,7 +2606,7 @@ export default function App() {
 
       {/* FILE MANAGEMENT VIEW */}
       {activeView === 'files' && (
-        <div className={`${mw} py-8`}>
+        <div className={`${mw} py-8 view-enter`}>
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
@@ -2632,8 +2700,8 @@ export default function App() {
 
       {/* ADD / EDIT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal-content">
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-lg font-bold text-slate-800">{editingId !== null ? 'Edit Entry' : 'Add New Entry'}</h2>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
@@ -2707,8 +2775,8 @@ export default function App() {
 
       {/* CSV IMPORT MODAL */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && closeImportModal()}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={(e) => e.target === e.currentTarget && closeImportModal()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col modal-content">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
               <div>
@@ -3017,8 +3085,8 @@ export default function App() {
 
       {/* ADS REPORT EDIT MODAL */}
       {showAdsModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowAdsModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowAdsModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 modal-content">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-slate-800">Edit GGR Data</h2>
               <button onClick={() => setShowAdsModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
@@ -3058,8 +3126,8 @@ export default function App() {
 
       {/* CREATOR PERF EDIT MODAL */}
       {showCreatorPerfModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowCreatorPerfModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={(e) => e.target === e.currentTarget && setShowCreatorPerfModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-content">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-slate-800">Edit Daily EOD Data</h2>
               <button onClick={() => setShowCreatorPerfModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
@@ -3131,7 +3199,7 @@ export default function App() {
 
 function MetricCard({ title, value, subValue, icon, color, valueColor }) {
   return (
-    <div className={`bg-white p-3 rounded-xl shadow-sm border-t border-r border-b border-slate-200 ${color} flex flex-col justify-between`}>
+    <div className={`metric-card card-enter bg-white p-3 rounded-xl shadow-sm border-t border-r border-b border-slate-200 ${color} flex flex-col justify-between`}>
       <div className="flex justify-between items-start mb-1">
         <span className="text-slate-500 text-xs font-bold uppercase tracking-wide truncate pr-2">{title}</span>
         <div className="p-1.5 bg-slate-50 rounded-md scale-90">{icon}</div>
@@ -3145,7 +3213,7 @@ function MetricCard({ title, value, subValue, icon, color, valueColor }) {
 }
 
 function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer, onEdit, formatNum }) {
-  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
+  const mw = layoutMode === 'compact' ? 'max-w-7xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-6';
   // Group from campaign entries: site → streamer → type → { reg, dep }
   const grouped = {};
   filteredData.forEach(item => {
@@ -3259,7 +3327,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
   );
 
   return (
-    <div className={`${mw} py-8 space-y-10`}>
+    <div className={`${mw} py-8 space-y-10 view-enter`}>
       {siteData.length === 0 && (
         <div className="text-center py-20 text-slate-400">
           <div className="text-5xl mb-4">📊</div>
@@ -3449,7 +3517,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
   );
 }
 function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin }) {
-  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
+  const mw = layoutMode === 'compact' ? 'max-w-7xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-6';
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
 
@@ -3632,7 +3700,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
   const siteColors = { WFL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', RLM: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', COW: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300', T2B: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' };
 
   return (
-    <div className={`${mw} py-8 space-y-6`}>
+    <div className={`${mw} py-8 space-y-6 view-enter`}>
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-start">
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
