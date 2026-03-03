@@ -945,6 +945,10 @@ export default function App() {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
+  // --- LAYOUT MODE ---
+  const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem('layoutMode') || 'stretched');
+  useEffect(() => { localStorage.setItem('layoutMode', layoutMode); }, [layoutMode]);
+
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState({});
 
@@ -1750,7 +1754,9 @@ export default function App() {
       daily[date].bonus += parseFloat(val.bonus)  || 0;
       daily[date].ngr   += parseFloat(val.ngr)    || 0;
     });
-    return Object.values(daily).sort((a, b) => new Date(a.date) - new Date(b.date));
+    return Object.values(daily)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map(d => ({ ...d, chartGgr: Math.abs(d.ggr), chartNgr: Math.abs(d.ngr) }));
   }, [filteredData, creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
   // Format currency
@@ -1787,12 +1793,16 @@ export default function App() {
   const sites = [...new Set([...data.map(d => d.site), ...perfSites, 'COW', 'T2B'])].filter(s => s && s !== 'PP').sort();
   const types = ["Live", "Reels"];
 
+  // Layout wrapper class — stretched = full-width, compact = boxed + smaller text
+  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
+  const mwHdr = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-8';
+
   return (
-    <div className="bg-slate-50 min-h-screen font-sans text-slate-900">
+    <div className={`bg-slate-50 min-h-screen font-sans text-slate-900 ${layoutMode === 'compact' ? 'text-[0.9em]' : ''}`}>
       
       {/* STICKY HEADER WRAPPER */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8">
+        <div className={mwHdr}>
 
           {/* ROW 1 — Brand + User Controls */}
           <div className="flex items-center justify-between h-14 gap-4">
@@ -1836,6 +1846,18 @@ export default function App() {
                   ? <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
                   : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 }
+              </button>
+              {/* Layout toggle */}
+              <button
+                onClick={() => setLayoutMode(m => m === 'stretched' ? 'compact' : 'stretched')}
+                title={layoutMode === 'stretched' ? 'Switch to Compact Mode' : 'Switch to Full-Width Mode'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all text-xs font-semibold shadow-sm whitespace-nowrap"
+              >
+                {layoutMode === 'stretched'
+                  ? <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                  : <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                }
+                {layoutMode === 'stretched' ? 'Compact' : 'Full-Width'}
               </button>
               {/* Role badge */}
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -1926,7 +1948,7 @@ export default function App() {
       </div>
 
       {/* STATS CARDS */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3">
+      <div className={`${mwHdr} py-3`}>
 
           <div className={`grid gap-3 ${(activeView === 'report' && reportSubTab === 'creator') ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7'}`}>
             {(() => {
@@ -2025,7 +2047,7 @@ export default function App() {
         </div>
 
       {(!startDate || !endDate) && (
-        <div className="max-w-7xl mx-auto p-4 md:p-8">
+        <div className={`${mw} py-8`}>
           <div className="flex flex-col items-center justify-center gap-4 py-24 bg-white dark:bg-slate-800/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
               <Calendar size={28} className="text-indigo-500" />
@@ -2039,7 +2061,7 @@ export default function App() {
       )}
 
       {startDate && endDate && activeView === 'dashboard' && (
-      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+      <div className={`${mw} py-8 space-y-8`}>
         
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
           {/* ── Chart header ── */}
@@ -2122,17 +2144,19 @@ export default function App() {
                 />
 
                 {/* Brush zoom */}
-                <Brush dataKey="date" height={24} stroke="#e2e8f0" fill="#f8fafc" travellerWidth={6}
+                <Brush dataKey="date" height={36} stroke="#6366f1" fill="#eef2ff" travellerWidth={10}
                   tickFormatter={str => { const d = new Date(str); return `${d.getMonth()+1}/${d.getDate()}`; }}
-                  y={340}
+                  y={335}
+                  style={{ fontSize: 11, fontWeight: 600, color: '#6366f1' }}
+                  gap={2}
                 />
 
                 {/* Areas (filled) */}
                 {!hiddenSeries.spend && <Area type="monotone" dataKey="spend" name="Ad Spend" stroke="#ef4444" strokeWidth={2} fill="url(#gradSpend)" dot={{ r: 3, fill: '#ef4444', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
                 {!hiddenSeries.dep   && <Area type="monotone" dataKey="dep"   name="Deposits" stroke="#10b981" strokeWidth={2} fill="url(#gradDep)"   dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
-                {!hiddenSeries.ggr   && <Area type="monotone" dataKey="ggr"   name="GGR"      stroke="#f59e0b" strokeWidth={2} fill="url(#gradGGR)"   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
-                {!hiddenSeries.bonus && <Area type="monotone" dataKey="bonus" name="Bonus"    stroke="#a855f7" strokeWidth={2} fill="url(#gradBonus)" dot={{ r: 3, fill: '#a855f7', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
-                {!hiddenSeries.ngr   && <Area type="monotone" dataKey="ngr"   name="NGR"      stroke="#6366f1" strokeWidth={2} fill="url(#gradNGR)"   dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ggr   && <Area type="monotone" dataKey="chartGgr" name="GGR"   stroke="#f59e0b" strokeWidth={2} fill="url(#gradGGR)"   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.bonus && <Area type="monotone" dataKey="bonus"    name="Bonus" stroke="#a855f7" strokeWidth={2} fill="url(#gradBonus)" dot={{ r: 3, fill: '#a855f7', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ngr   && <Area type="monotone" dataKey="chartNgr" name="NGR"   stroke="#6366f1" strokeWidth={2} fill="url(#gradNGR)"   dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -2329,7 +2353,7 @@ export default function App() {
       )}
 
       {startDate && endDate && activeView === 'report' && (
-        <div className="max-w-7xl mx-auto px-4 pt-2 md:px-8">
+        <div className={`${mw} pt-2`}>
           {/* Sub-tab bar */}
           <div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-fit mb-6">
             <button
@@ -2354,6 +2378,7 @@ export default function App() {
 
       {activeView === 'report' && reportSubTab === 'ads' && (
         <AdsReportView
+          layoutMode={layoutMode}
           filteredData={filteredData}
           adsReportData={adsReportData}
           creatorPerfData={creatorPerfData}
@@ -2369,6 +2394,7 @@ export default function App() {
 
       {activeView === 'report' && reportSubTab === 'creator' && (
         <CreatorReportView
+          layoutMode={layoutMode}
           data={data}
           startDate={startDate}
           endDate={endDate}
@@ -2908,7 +2934,8 @@ function MetricCard({ title, value, subValue, icon, color, valueColor }) {
   );
 }
 
-function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer, onEdit, formatNum }) {
+function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer, onEdit, formatNum }) {
+  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
   // Group from campaign entries: site → streamer → type → { reg, dep }
   const grouped = {};
   filteredData.forEach(item => {
@@ -3022,7 +3049,7 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-10">
+    <div className={`${mw} py-8 space-y-10`}>
       {siteData.length === 0 && (
         <div className="text-center py-20 text-slate-400">
           <div className="text-5xl mb-4">📊</div>
@@ -3033,6 +3060,9 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
       {siteData.map(({ site, streamerData, siteTotal }) => {
         const label = SITE_LABELS[site] || site;
         const colorCls = site === 'WFL' ? 'bg-blue-600' : site === 'RLM' ? 'bg-purple-600' : site === 'COW' ? 'bg-teal-600' : site === 'T2B' ? 'bg-rose-600' : 'bg-slate-600';
+        const totalRowBg = site === 'WFL' ? 'bg-blue-950 border-blue-700' : site === 'RLM' ? 'bg-purple-950 border-purple-700' : site === 'COW' ? 'bg-teal-950 border-teal-700' : site === 'T2B' ? 'bg-rose-950 border-rose-700' : 'bg-slate-900 border-slate-600';
+        const totalRowText = site === 'WFL' ? 'text-blue-100' : site === 'RLM' ? 'text-purple-100' : site === 'COW' ? 'text-teal-100' : site === 'T2B' ? 'text-rose-100' : 'text-slate-100';
+        const totalRowMuted = site === 'WFL' ? 'text-blue-200' : site === 'RLM' ? 'text-purple-200' : site === 'COW' ? 'text-teal-200' : site === 'T2B' ? 'text-rose-200' : 'text-slate-300';
         return (
           <div key={site} className="space-y-4">
             {/* Site Header */}
@@ -3128,7 +3158,7 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
             })}
 
             {/* Site Total Row */}
-            <div className="bg-white rounded-xl border-2 border-slate-300 overflow-hidden shadow-sm">
+            <div className={`rounded-xl border-2 overflow-hidden shadow-sm ${totalRowBg}`}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm font-bold">
                   <thead>
@@ -3144,13 +3174,13 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="px-4 py-3 text-slate-800 w-44 tracking-wider">{label} TOTAL</td>
-                      <td className="px-4 py-3 text-right text-slate-800">{formatNum(siteTotal.reg)}</td>
-                      <td className="px-4 py-3 text-right text-slate-800">{fmtVal(siteTotal.dep)}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{fmtVal(siteTotal.ggr)}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{fmtVal(siteTotal.bonus)}</td>
-                      <td className={`px-4 py-3 text-right ${siteTotal.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(siteTotal.ngr)}</td>
-                      <td className="px-4 py-3 text-right text-slate-600">{fmtVal(siteTotal.boosting)}</td>
+                      <td className={`px-4 py-3 w-44 tracking-wider font-bold ${totalRowText}`}>{label} TOTAL</td>
+                      <td className={`px-4 py-3 text-right font-bold ${totalRowText}`}>{formatNum(siteTotal.reg)}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${totalRowText}`}>{fmtVal(siteTotal.dep)}</td>
+                      <td className={`px-4 py-3 text-right ${totalRowMuted}`}>{fmtVal(siteTotal.ggr)}</td>
+                      <td className={`px-4 py-3 text-right ${totalRowMuted}`}>{fmtVal(siteTotal.bonus)}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${siteTotal.ngr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtVal(siteTotal.ngr)}</td>
+                      <td className={`px-4 py-3 text-right ${totalRowMuted}`}>{fmtVal(siteTotal.boosting)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -3162,39 +3192,54 @@ function AdsReportView({ filteredData, adsReportData, creatorPerfData, startDate
 
       {/* Grand Total */}
       {siteData.length > 1 && (
-        <div className="bg-indigo-900 text-white rounded-xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm font-bold">
-              <thead>
-                <tr className="border-b border-indigo-700">
-                  <th className="px-4 py-1.5 text-left text-[10px] font-semibold text-indigo-300 uppercase tracking-widest w-44"></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-sky-900/60 text-sky-300 px-1.5 py-0.5 rounded">Reg</span></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-emerald-900/60 text-emerald-300 px-1.5 py-0.5 rounded">Deposits</span></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded">GGR</span></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-orange-900/60 text-orange-300 px-1.5 py-0.5 rounded">Bonus</span></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-teal-900/60 text-teal-300 px-1.5 py-0.5 rounded">NGR</span></th>
-                  <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-violet-900/60 text-violet-300 px-1.5 py-0.5 rounded">Boosting</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="px-4 py-4 w-44 tracking-wider">TOTAL {siteOrder.join(' & ')}</td>
-                  <td className="px-4 py-4 text-right">{formatNum(grandTotal.reg)}</td>
-                  <td className="px-4 py-4 text-right">{fmtVal(grandTotal.dep)}</td>
-                  <td className="px-4 py-4 text-right opacity-90">{fmtVal(grandTotal.ggr)}</td>
-                  <td className="px-4 py-4 text-right opacity-90">{fmtVal(grandTotal.bonus)}</td>
-                  <td className={`px-4 py-4 text-right ${grandTotal.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmtVal(grandTotal.ngr)}</td>
-                  <td className="px-4 py-4 text-right opacity-90">{fmtVal(grandTotal.boosting)}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl" style={{background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4c1d95 60%, #1e1b4b 100%)'}}>
+          {/* Decorative top accent line */}
+          <div className="h-1 w-full" style={{background: 'linear-gradient(90deg, #38bdf8, #a78bfa, #f472b6, #fb923c, #34d399)'}} />
+          <div className="px-6 py-5">
+            {/* Title row */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
+                <span className="text-white/50 text-[10px] font-bold uppercase tracking-[0.2em]">Grand Total</span>
+              </div>
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-white font-extrabold text-base tracking-wider">TOTAL {siteOrder.join(' & ')}</span>
+            </div>
+            {/* Stat cards */}
+            <div className="grid grid-cols-6 gap-3">
+              <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
+                <span className="text-sky-300 text-[10px] font-bold uppercase tracking-widest">Reg</span>
+                <span className="text-white font-extrabold text-sm">{formatNum(grandTotal.reg)}</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
+                <span className="text-emerald-300 text-[10px] font-bold uppercase tracking-widest">Deposits</span>
+                <span className="text-white font-extrabold text-sm">{fmtVal(grandTotal.dep)}</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
+                <span className="text-amber-300 text-[10px] font-bold uppercase tracking-widest">GGR</span>
+                <span className="text-white/80 font-bold text-sm">{fmtVal(grandTotal.ggr)}</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
+                <span className="text-orange-300 text-[10px] font-bold uppercase tracking-widest">Bonus</span>
+                <span className="text-white/80 font-bold text-sm">{fmtVal(grandTotal.bonus)}</span>
+              </div>
+              <div className={`backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border ${grandTotal.ngr >= 0 ? 'bg-emerald-500/20 border-emerald-400/30' : 'bg-red-500/20 border-red-400/30'}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${grandTotal.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>NGR</span>
+                <span className={`font-extrabold text-sm ${grandTotal.ngr >= 0 ? 'text-emerald-300' : 'text-red-400'}`}>{fmtVal(grandTotal.ngr)}</span>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
+                <span className="text-violet-300 text-[10px] font-bold uppercase tracking-widest">Boosting</span>
+                <span className="text-white/80 font-bold text-sm">{fmtVal(grandTotal.boosting)}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin }) {
+function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin }) {
+  const mw = layoutMode === 'compact' ? 'max-w-5xl mx-auto px-4 md:px-6' : 'w-full px-4 md:px-6';
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
 
@@ -3377,7 +3422,7 @@ function CreatorReportView({ data, startDate, endDate, creatorPerfData, onEdit, 
   const siteColors = { WFL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', RLM: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', COW: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300', T2B: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+    <div className={`${mw} py-8 space-y-6`}>
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-start">
         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
