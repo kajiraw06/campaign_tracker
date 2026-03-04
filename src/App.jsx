@@ -3,6 +3,7 @@ import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend
 import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign, Users, Calendar, Filter, Video, VideoOff, Radio, ExternalLink, Plus, Trash2, Edit2, X, BarChart2, Activity, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 import { supabase } from './supabase';
 import { useAuth } from './AuthContext';
+import * as XLSX from 'xlsx';
 
 
 // ─── BUILT-IN STREAMER ALIAS DICTIONARY ───────────────────────────────────
@@ -41,6 +42,8 @@ const STREAMER_ALIASES = {
   kim: 'Kim',                        kimsolis: 'Kim',
   sainty: 'Sainty',                  saintymaxwin: 'Sainty',
   saintymaxwinreels: 'Sainty',
+  chadkinis: 'Chadkinis',            chad: 'Chadkinis',
+  chadkinislive: 'Chadkinis',        chadkinisreels: 'Chadkinis',
   // ── T2B ──
   time2bet: 'T2B Affiliate',
   akosidogie: 'Dogie',   dogie: 'Dogie',
@@ -49,7 +52,6 @@ const STREAMER_ALIASES = {
   h2wo: 'H2wo',
   ribo: 'Ribo',
   zico: 'Zico',
-  yuji: 'Yuji',
   // ── COW ──
   cow: 'COW Affiliate',
 };
@@ -1116,7 +1118,7 @@ export default function App() {
   };
 
   const saveFileRecord = async (extraInfo = '') => {
-    const { name, content, size } = importRawRef.current;
+    const { name, content, size, binaryContent } = importRawRef.current;
     if (!name) return;
     const record = {
       file_name: name,
@@ -1126,6 +1128,8 @@ export default function App() {
       file_type: name.split('.').pop().toLowerCase(),
       extra_info: extraInfo,
       file_content: content,
+      // For XLSX files, store the raw bytes as base64 so the file can be downloaded intact
+      ...(binaryContent ? { file_content_binary: binaryContent } : {}),
     };
     const { data: saved } = await supabase.from('uploaded_files').insert([record]).select();
     if (saved) setUploadedFiles(prev => [saved[0], ...prev]);
@@ -1138,7 +1142,18 @@ export default function App() {
   };
 
   const handleDownloadFile = (file) => {
-    const blob = new Blob([file.file_content || ''], { type: 'text/csv' });
+    const ext = (file.file_name || '').split('.').pop().toLowerCase();
+    const isXlsx = ext === 'xlsx' || ext === 'xls';
+    let blob;
+    if (isXlsx && file.file_content_binary) {
+      // Stored as base64 for XLSX
+      const binary = atob(file.file_content_binary);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    } else {
+      blob = new Blob([file.file_content || ''], { type: 'text/csv' });
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1454,7 +1469,13 @@ export default function App() {
 
   // ─── EOD FORMAT DETECTION & PARSING ──────────────────────────────────────
   function isEODFormat(text) {
-    return /OF DAY REPORT|END OF\s+THE\s+DAY|END OF DAY/i.test(text);
+    // Require BOTH the section header AND the column-header row (DAY + REGISTER)
+    // so that summary/roster sheets that incidentally contain "END OF DAY" text
+    // are not mistaken for EOD reports.
+    return (
+      /OF DAY REPORT|END OF\s+THE\s+DAY|END OF DAY/i.test(text) &&
+      /\bDAY\b.*\bREGISTER/i.test(text)
+    );
   }
 
   function siteFromFilename(name) {
@@ -1484,6 +1505,9 @@ export default function App() {
       .replace(/\[[^\]]*\]/g, '')           // remove [bracket] content
       .replace(/\([^)]*\)/g, '')            // remove (paren) content
       .replace(/\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER).*/i, '')
+      // Strip "END OF DAY REPORT" / "END OF THE DAY" / "OF DAY REPORT" suffix
+      // These are part of the section title row, not the streamer name
+      .replace(/\s*(?:END\s+OF\s+(?:THE\s+)?DAY(?:\s+REPORT)?|OF\s+DAY\s+REPORT).*/i, '')
       .replace(/[&]?LP$/i, '')              // strip &LP or LP suffix
       .replace(/^(?:WFL|RLM|T2B|COW)/i, '') // strip site prefix
       .trim();
@@ -1509,8 +1533,10 @@ export default function App() {
         if (key.length >= 3 && n.includes(key)) return val;
       }
       // alias key contains csv token ("neggy" inside "neggytv")
+      // Require n.length >= 5 so short site codes (wfl, rlm, cow, t2b) don't
+      // accidentally match long keys like "wflaffiliate".
       for (const [key, val] of Object.entries(STREAMER_ALIASES)) {
-        if (key.length >= 3 && key.startsWith(n) && n.length >= 3) return val;
+        if (key.length >= 3 && key.startsWith(n) && n.length >= 5) return val;
       }
       return null;
     };
@@ -1581,6 +1607,15 @@ export default function App() {
       cols[1]?.toUpperCase().includes('TOTAL') ||
       /^Demo and With Risk/i.test(cols[0] || '');
 
+    // Month names and generic report-level labels that are never real streamer names.
+    // "FEBRUARY END OF DAY REPORT" → streamerFromHeader → "February" must be discarded.
+    // "WFL AFFILIATE END OF DAY REPORT" → "Affiliate" — a site-level aggregate, not a talent.
+    const PHANTOM_LABELS = new Set([
+      'january','february','march','april','may','june',
+      'july','august','september','october','november','december',
+      'affiliate','unknown',
+    ]);
+
     for (const raw of lines) {
       const cols = parseCsvLine(raw);
       const first = (cols[0] || '').trim();
@@ -1588,6 +1623,13 @@ export default function App() {
       if (isHeaderLine(raw)) {
         if (cur && cur.rows.length > 0) sections.push(cur);
         const { name: parsedName, hint } = streamerFromHeader(first);
+        // Discard report-level titles (month names, "Affiliate", etc.) — set cur to null
+        // so any data rows beneath this header are skipped until the next real section.
+        if (PHANTOM_LABELS.has(parsedName.toLowerCase())) {
+          cur = null;
+          inData = false;
+          continue;
+        }
         cur = { streamer: parsedName, hint, editName: parsedName, alias: '', site: detectedSite, selected: false, rows: [] };
         inData = false;
         continue;
@@ -1817,9 +1859,16 @@ export default function App() {
   function buildCampaignPreview(rawRows, mapping) {
     // Cache normalized name lookups so we don't re-run smartMatchStreamer for every row
     const nameCache = {};
+    // Site codes must never be resolved as streamer names — they appear as cell values
+    // in site-column-less sheets and would otherwise match aliases like
+    // `cow → 'COW Affiliate'` or `wflaffiliate` via prefix fuzzy rule.
+    const SITE_CODES = new Set(['wfl', 'rlm', 't2b', 'cow', 'rollem', 'time2bet']);
     const normalizeStreamer = (raw) => {
       if (!raw) return raw;
       if (nameCache[raw] !== undefined) return nameCache[raw];
+      // Skip alias/fuzzy matching for bare site codes
+      const normRaw = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (SITE_CODES.has(normRaw)) { nameCache[raw] = raw; return raw; }
       // `streamers` useMemo is defined later in the component but is in scope when this
       // function is actually called (always from an event handler, after full render).
       const knownList = (typeof streamers !== 'undefined' && Array.isArray(streamers)) ? streamers : [];
@@ -1877,30 +1926,46 @@ export default function App() {
     try { localStorage.setItem('streamTally', JSON.stringify(updated)); } catch {}
   };
 
+  // ─── XLSX → SHEETS CONVERSION ─────────────────────────────────────────────
+  // Returns an array of { name, csv } for every non-blank sheet in the workbook.
+  const xlsxToSheets = (arrayBuffer) => {
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    return wb.SheetNames
+      .map(name => ({
+        name,
+        csv: XLSX.utils.sheet_to_csv(wb.Sheets[name], { blankrows: false }),
+      }))
+      .filter(s => s.csv.replace(/[,\n\r\s]/g, '').length > 0); // skip fully blank sheets
+  };
+
   // ─── IMPORT HANDLERS ──────────────────────────────────────────────────────
   const handleImportFile = (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      importRawRef.current = { name: file.name, content: text, size: file.size };
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isXlsxFile = ext === 'xlsx' || ext === 'xls';
+
+    // ── Core processing — works on plain text (CSV) or a pre-converted array of sheets ──
+    const processText = (text, rawBinary = null) => {
+      importRawRef.current = {
+        name: file.name,
+        content: text,
+        size: file.size,
+        ...(isXlsxFile && rawBinary ? { binaryContent: rawBinary } : {}),
+      };
       if (importEODOnly && !isEODFormat(text)) {
         alert('❌ This file is not an UNRAVEL EOD TALENTS report.\nPlease upload the correct EOD CSV file.');
         return;
       }
       if (isEODFormat(text)) {
         const { sections, detectedSite } = parseEODCsv(text, file.name);
-        // Extract a streamer hint from the filename (e.g. "WFL - HOLYFATHER.csv" → "HolyFather")
         const fnHint = streamerHintFromFilename(file.name);
-        // When file has only ONE section and the filename contains a streamer name,
-        // use the filename hint as a stronger signal than the section header.
         const useFnHintDirect = sections.length === 1 && !!fnHint;
         const matched = sections.map(sec => {
           const known = useFnHintDirect
             ? fnHint
             : smartMatchStreamer(sec.streamer, sec.hint, sec.alias, streamers, fnHint);
           const resolvedName = known || sec.streamer;
-          const autoMatched = resolvedName !== sec.streamer; // did we improve on the raw header?
+          const autoMatched = resolvedName !== sec.streamer;
           return { ...sec, editName: resolvedName, autoMatched };
         });
         setEodSections(matched);
@@ -1910,8 +1975,6 @@ export default function App() {
         const { headers, rows, sideTable } = parseFlatCSV(text);
         if (!headers.length) return;
         const mapping = autoMapColumns(headers);
-        // If no site column was found, infer the site from the filename
-        // (e.g. "MEDIA BUYER & TALENTS _ TRACKER - ROLLEM.csv" → 'RLM')
         if (mapping.site === undefined) {
           const siteHint = siteFromFilename(file.name);
           if (siteHint) mapping._defaultSite = siteHint;
@@ -1925,17 +1988,165 @@ export default function App() {
       }
       setImportStep(2);
     };
-    reader.readAsText(file);
+
+    // ── Multi-sheet XLSX handler ──────────────────────────────────────────────
+    const processSheets = (sheets, rawBinary) => {
+      if (sheets.length === 0) { alert('❌ The XLSX file appears to be empty.'); return; }
+
+      // EOD: parse each sheet independently, then MERGE sections by streamer+site key.
+      // Concatenating all sheets caused every streamer to appear N times (once per sheet)
+      // and non-EOD sheets to inject garbage entries.
+      const anyEOD = sheets.some(s => isEODFormat(s.csv));
+      if (anyEOD || importEODOnly) {
+        // Use sheet name to infer site when the EOD file itself has no site marker
+        const mergedMap = {}; // key = "streamer|||site" → section object
+
+        sheets.forEach(sheet => {
+          if (!isEODFormat(sheet.csv)) return;
+          const sheetSiteHint = siteFromFilename(sheet.name) || siteFromFilename(file.name);
+          const { sections } = parseEODCsv(sheet.csv, sheet.name || file.name);
+          sections.forEach(sec => {
+            const site = sec.site || sheetSiteHint || '';
+            // Resolve canonical name NOW (before building the merge key) so that
+            // different aliases of the same streamer (e.g. "Chad" vs "Chadkinis")
+            // collapse into a single entry rather than creating duplicates.
+            const canonical = smartMatchStreamer(sec.streamer, sec.hint, sec.alias, [], '') || sec.streamer;
+            const key = `${canonical.toLowerCase()}|||${site}`;
+            if (!mergedMap[key]) {
+              mergedMap[key] = { ...sec, site, streamer: canonical };
+            } else {
+              // Same streamer+site appeared in another sheet — merge rows (union by date)
+              const existing = mergedMap[key];
+              const existingDates = new Set(existing.rows.map(r => r.date));
+              sec.rows.forEach(r => { if (!existingDates.has(r.date)) existing.rows.push(r); });
+              // Keep the alias if we didn't have one yet
+              if (!existing.alias && sec.alias) existing.alias = sec.alias;
+            }
+          });
+        });
+
+        // Require at least 2 real data rows — eliminates phantom sections created
+        // when a non-data sheet is partially misread as EOD format.
+        const MIN_ROWS = 2;
+        const allSections = Object.values(mergedMap).filter(s => s.rows.length >= MIN_ROWS);
+        if (!allSections.length) { alert('❌ No EOD data found in this XLSX file.'); return; }
+
+        // Resolve streamer names the same way processText does
+        const fnHint = streamerHintFromFilename(file.name);
+        const useFnHintDirect = allSections.length === 1 && !!fnHint;
+        const matched = allSections.map(sec => {
+          const known = useFnHintDirect
+            ? fnHint
+            : smartMatchStreamer(sec.streamer, sec.hint, sec.alias, streamers, fnHint);
+          const resolvedName = known || sec.streamer;
+          return { ...sec, editName: resolvedName, autoMatched: resolvedName !== sec.streamer };
+        });
+
+        // Infer site — use first detected, fall back to filename
+        const detectedSite = allSections.find(s => s.site)?.site ||
+          siteFromFilename(file.name) || '';
+
+        importRawRef.current = {
+          name: file.name,
+          content: sheets.filter(s => isEODFormat(s.csv)).map(s => s.csv).join('\n\n'),
+          size: file.size,
+          binaryContent: rawBinary,
+        };
+        setEodSections(matched);
+        setEodSite(detectedSite);
+        setImportMode('eod');
+        setImportStep(2);
+        return;
+      }
+
+      // Campaign: parse each sheet independently, infer site from sheet name, merge results
+      let mergedHeaders = [];
+      let mergedRows = [];
+      let mergedSideTable = {};
+      let firstMapping = null;
+
+      sheets.forEach(sheet => {
+        const { headers, rows, sideTable } = parseFlatCSV(sheet.csv);
+        if (!headers.length) return; // skip sheets with no recognisable data
+        const mapping = autoMapColumns(headers);
+
+        // Per-sheet site inference: site column > sheet name > filename
+        if (mapping.site === undefined) {
+          const siteHint = siteFromFilename(sheet.name) || siteFromFilename(file.name);
+          if (siteHint) mapping._defaultSite = siteHint;
+        }
+
+        if (!firstMapping) { firstMapping = mapping; mergedHeaders = headers; }
+
+        // Collect rows — use this sheet's own mapping so column offsets are correct
+        const preview = buildCampaignPreview(rows, mapping);
+        mergedRows = mergedRows.concat(rows);
+        // Store preview rows tagged with this sheet's mapping for accurate column reads
+        // We accumulate the final preview directly here instead of re-deriving it later
+        mergedSideTable = { ...mergedSideTable, ...(sideTable || {}) };
+
+        // Accumulate preview directly (avoids re-running buildCampaignPreview on mixed rows)
+        // We'll use a special sentinel to pass pre-built preview
+        if (!firstMapping._prebuiltPreview) firstMapping._prebuiltPreview = [];
+        firstMapping._prebuiltPreview = firstMapping._prebuiltPreview.concat(preview);
+      });
+
+      if (!firstMapping) { alert('❌ No usable data found in this XLSX file.'); return; }
+
+      importRawRef.current = { name: file.name, content: sheets.map(s=>s.csv).join('\n\n'), size: file.size, binaryContent: rawBinary };
+
+      const finalPreview = firstMapping._prebuiltPreview || [];
+      delete firstMapping._prebuiltPreview;
+
+      setCampHeaders(mergedHeaders);
+      setCampRawRows(mergedRows);
+      setCampMapping(firstMapping);
+      setCampPreview(finalPreview);
+      setCampSideTable(mergedSideTable);
+      setImportMode('campaign');
+      setImportStep(2);
+    };
+
+    if (isXlsxFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const arrayBuffer = e.target.result;
+          const sheets = xlsxToSheets(arrayBuffer);
+
+          // Convert arrayBuffer → base64 for later download
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          const base64 = btoa(binary);
+
+          if (sheets.length === 1) {
+            processText(sheets[0].csv, base64);
+          } else {
+            processSheets(sheets, base64);
+          }
+        } catch (err) {
+          alert('❌ Could not read XLSX file. Make sure it is a valid Excel file.\n' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Plain CSV / TSV / TXT — read as text as before
+      const reader = new FileReader();
+      reader.onload = (e) => processText(e.target.result);
+      reader.readAsText(file);
+    }
   };
 
   const handleEODImport = async () => {
     if (importing) return;
     setImporting(true);
-    const site = eodSite;
     const newPerf = { ...creatorPerfData };
     const upsertRows = [];
     let count = 0;
     eodSections.filter(s => s.selected).forEach(section => {
+      // Use the per-section detected site first, fall back to the global eodSite picker
+      const site = section.site || eodSite;
       section.rows.forEach(row => {
         const key = `${row.date}|${section.editName}|${site}`;
         newPerf[key] = {
@@ -1962,7 +2173,7 @@ export default function App() {
     }
     setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
-    await saveFileRecord(`EOD · ${eodSite} · ${eodSections.filter(s=>s.selected).map(s=>s.editName).join(', ')}`);
+    await saveFileRecord(`EOD · ${eodSections.filter(s=>s.selected).map(s=>`${s.editName}(${s.site||eodSite})`).join(', ')}`);
     setImporting(false);
     setImportStep(3);
   };
@@ -2437,7 +2648,7 @@ export default function App() {
               )}
               {isAdmin && !(activeView === 'report' && reportSubTab === 'creator') && (
                 <button onClick={() => setShowImportModal(true)} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shadow-sm whitespace-nowrap">
-                  <Upload size={13} /> Import CSV
+                  <Upload size={13} /> Import File
                 </button>
               )}
               {isAdmin && (
@@ -3220,9 +3431,9 @@ export default function App() {
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-700">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> {importEODOnly ? 'Import EOD Report' : 'Import CSV'}</h2>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Upload size={18} className="text-emerald-500"/> {importEODOnly ? 'Import EOD Report' : 'Import File'}</h2>
                 <p className="text-xs text-slate-400 dark:text-slate-400 mt-0.5">
-                  {importStep === 1 && (importEODOnly ? 'UNRAVEL EOD TALENTS files only' : 'Drop any CSV — format is detected automatically')}
+                  {importStep === 1 && (importEODOnly ? 'UNRAVEL EOD TALENTS files only' : 'Drop any CSV or XLSX — format is detected automatically')}
                   {importStep === 2 && importMode === 'eod'      && `EOD Report detected — ${eodSections.length} streamer(s) found`}
                   {importStep === 2 && importMode === 'campaign' && `Campaign data — ${campPreview.length} rows ready`}
                   {importStep === 3 && 'Done!'}
@@ -3245,15 +3456,15 @@ export default function App() {
                   onDrop={(e) => { e.preventDefault(); setImportDragOver(false); handleImportFile(e.dataTransfer.files[0]); }}
                 >
                   <Upload size={40} className="mx-auto text-slate-300 mb-3"/>
-                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-1">Click anywhere here or drag & drop a CSV file</p>
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-200 mb-1">Click anywhere here or drag & drop a CSV or XLSX file</p>
                   <p className="text-xs text-slate-400 dark:text-slate-400 mb-4">
-                    {importEODOnly ? 'Only UNRAVEL EOD TALENTS CSV files are accepted here' : 'EOD reports and campaign CSVs are both supported'}
+                    {importEODOnly ? 'Only UNRAVEL EOD TALENTS CSV/XLSX files are accepted here' : 'EOD reports and campaign files are both supported — CSV and XLSX'}
                   </p>
-                  <input ref={importFileRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={(e) => handleImportFile(e.target.files[0])}/>
+                  <input ref={importFileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" className="hidden" onChange={(e) => handleImportFile(e.target.files[0])}/>
                   <div className="flex justify-center gap-4 text-[11px] text-slate-400 mt-4">
                     {importEODOnly
-                      ? <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 rounded-full font-semibold">UNRAVEL EOD TALENTS - *.csv only</span>
-                      : <><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">UNRAVEL EOD TALENTS - *.csv</span><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">MEDIA BUYER & TALENTS * TRACKER.csv</span></>
+                      ? <span className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1 rounded-full font-semibold">UNRAVEL EOD TALENTS - *.csv / *.xlsx</span>
+                      : <><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">UNRAVEL EOD *.csv / *.xlsx</span><span className="bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-3 py-1 rounded-full">MEDIA BUYER TRACKER *.csv / *.xlsx</span></>
                     }
                   </div>
                 </div>
@@ -3262,9 +3473,9 @@ export default function App() {
               {/* STEP 2 — EOD Mode: Streamers review */}
               {importStep === 2 && importMode === 'eod' && (
                 <div className="space-y-4">
-                  {/* Site selector */}
+                  {/* Site selector — fallback only, used when a section has no auto-detected site */}
                   <div className="flex items-center gap-3">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Site:</label>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Fallback site:</label>
                     <div className="flex gap-2">
                       {['WFL','RLM','T2B','COW'].map(s => (
                         <button
@@ -3278,7 +3489,8 @@ export default function App() {
                         >{s}</button>
                       ))}
                     </div>
-                    {!eodSite && <span className="text-xs text-amber-600 font-semibold">← please confirm the site</span>}
+                    {eodSections.some(s => !s.site) && !eodSite && <span className="text-xs text-amber-600 font-semibold">← needed for undetected rows</span>}
+                    {eodSections.every(s => s.site) && <span className="text-xs text-emerald-600 font-semibold">✓ all sites auto-detected from file</span>}
                   </div>
 
                   {/* Streamers table */}
@@ -3298,6 +3510,7 @@ export default function App() {
                           </th>
                           <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Streamer (from file)</th>
                           <th className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Import as</th>
+                          <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Site</th>
                           <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Status</th>
                           <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Rows</th>
                           <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Date range</th>
@@ -3329,6 +3542,18 @@ export default function App() {
                                       : 'border-amber-300 dark:border-amber-500 focus:ring-amber-400'
                                   }`}
                                 />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <select
+                                  value={sec.site || eodSite || ''}
+                                  onChange={e => setEodSections(prev => prev.map((s,j) => j===i ? { ...s, site: e.target.value } : s))}
+                                  className={`border rounded px-1 py-0.5 text-xs font-bold focus:outline-none focus:ring-1 bg-white dark:bg-slate-700 dark:text-slate-100 ${
+                                    sec.site ? 'border-emerald-300 text-emerald-700 dark:border-emerald-500 dark:text-emerald-300' : 'border-amber-300 text-amber-600 dark:border-amber-500'
+                                  }`}
+                                >
+                                  <option value="">—</option>
+                                  {['WFL','RLM','T2B','COW'].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {isAutoMatched
@@ -3473,7 +3698,7 @@ export default function App() {
                   <button onClick={() => setImportStep(1)} className="border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-700">← Back</button>
                   <button
                     onClick={handleEODImport}
-                    disabled={importing || !eodSite || eodSections.every(s => !s.selected)}
+                    disabled={importing || eodSections.filter(s=>s.selected).some(s => !s.site && !eodSite) || eodSections.every(s => !s.selected)}
                     className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-lg text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {importing
@@ -4356,7 +4581,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-red-500 font-medium">{row.hasData !== false ? formatPHP(row.totalSpend) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-emerald-600 font-medium">{row.hasData !== false ? formatPHP(row.totalDep) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
-                    <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${row.totalWithdrawal.toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                    <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${Math.abs(row.totalWithdrawal).toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600 dark:text-slate-400' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
@@ -4471,7 +4696,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   <td className="px-2 py-2 text-right">{totals.validTurnover ? totals.validTurnover.toLocaleString() : '—'}</td>
                   <td className="px-2 py-2 text-right">{formatPHP(totals.spend)}</td>
                   <td className="px-2 py-2 text-right">{formatPHP(totals.dep)}</td>
-                  <td className="px-2 py-2 text-right opacity-80">{totals.totalWithdrawal ? `-${totals.totalWithdrawal.toLocaleString()}` : '—'}</td>
+                  <td className="px-2 py-2 text-right opacity-80">{totals.totalWithdrawal ? `-${Math.abs(totals.totalWithdrawal).toLocaleString()}` : '—'}</td>
                   <td className={`px-2 py-2 text-right ${totals.ggr >= 0 ? '' : 'text-red-300'}`}>{fmtVal(totals.ggr)}</td>
                   <td className="px-2 py-2 text-right opacity-80">{fmtVal(totals.bonus)}</td>
                   <td className={`px-2 py-2 text-right ${totals.ngr >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{fmtVal(totals.ngr)}</td>
