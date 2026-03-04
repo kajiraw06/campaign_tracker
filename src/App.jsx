@@ -41,8 +41,16 @@ const STREAMER_ALIASES = {
   kim: 'Kim',                        kimsolis: 'Kim',
   sainty: 'Sainty',                  saintymaxwin: 'Sainty',
   saintymaxwinreels: 'Sainty',
-  // ── T2B / COW ──
+  // ── T2B ──
   time2bet: 'T2B Affiliate',
+  akosidogie: 'Dogie',   dogie: 'Dogie',
+  yawi: 'Yawi',
+  renejay: 'Renejay',
+  h2wo: 'H2wo',
+  ribo: 'Ribo',
+  zico: 'Zico',
+  yuji: 'Yuji',
+  // ── COW ──
   cow: 'COW Affiliate',
 };
 
@@ -1007,7 +1015,16 @@ export default function App() {
       .from('campaigns')
       .select('*')
       .order('date', { ascending: true });
-    if (!error) setData(rows || []);
+    if (!error) {
+      // Normalize streamer names against the alias dictionary so that CSV imports
+      // with raw names like "AKOSI DOGIE" are treated as "Dogie" everywhere.
+      const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalized = (rows || []).map(r => {
+        const alias = STREAMER_ALIASES[norm(r.streamer)];
+        return alias ? { ...r, streamer: alias } : r;
+      });
+      setData(normalized);
+    }
     setLoading(false);
   };
 
@@ -1076,6 +1093,11 @@ export default function App() {
     }
   };
   useEffect(() => { fetchNoStream(); }, []);
+
+  // --- STREAM TALLY (live/reels counts from CSV side table, persisted to localStorage) ---
+  const [streamTally, setStreamTally] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('streamTally') || '{}'); } catch { return {}; }
+  });
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const importRawRef = useRef({ name: '', content: '', size: 0 });
 
@@ -1357,6 +1379,8 @@ export default function App() {
       setCreatorPerfData({});
       setNoStreamData({});
       setUploadedFiles([]);
+      setStreamTally({});
+      try { localStorage.removeItem('streamTally'); } catch {}
     } finally {
       setClearingData(false);
       setShowClearModal(false);
@@ -1435,10 +1459,17 @@ export default function App() {
 
   function siteFromFilename(name) {
     const f = name.toLowerCase();
-    if (f.includes('time2bet')) return 'T2B';
-    if (f.includes('rollem') || f.includes('_rlm') || f.includes('-rlm')) return 'RLM';
-    if (f.includes('_wfl') || f.includes('-wfl') || f.includes('wfl')) return 'WFL';
-    if (f.includes('cow')) return 'COW';
+    // Check full words first (more specific)
+    if (f.includes('time2bet') || /\bt2b\b/.test(f) || f.startsWith('t2b ') || f.startsWith('t2b_') || f.startsWith('t2b-')) return 'T2B';
+    if (f.includes('rollem') || /\brlm\b/.test(f) || f.includes('_rlm') || f.includes('-rlm')) return 'RLM';
+    if (/\bwfl\b/.test(f) || f.includes('_wfl') || f.includes('-wfl') || f.includes(' wfl')) return 'WFL';
+    if (/\bcow\b/.test(f)) return 'COW';
+    // Fallback: look for known site codes anywhere in the filename
+    const m = f.match(/\b(t2b|rlm|wfl|cow)\b/);
+    if (m) {
+      const map = { t2b: 'T2B', rlm: 'RLM', wfl: 'WFL', cow: 'COW' };
+      return map[m[1]] || '';
+    }
     return '';
   }
 
@@ -1557,7 +1588,7 @@ export default function App() {
       if (isHeaderLine(raw)) {
         if (cur && cur.rows.length > 0) sections.push(cur);
         const { name: parsedName, hint } = streamerFromHeader(first);
-        cur = { streamer: parsedName, hint, editName: parsedName, alias: '', site: detectedSite, selected: true, rows: [] };
+        cur = { streamer: parsedName, hint, editName: parsedName, alias: '', site: detectedSite, selected: false, rows: [] };
         inData = false;
         continue;
       }
@@ -1574,14 +1605,16 @@ export default function App() {
       if (!isValidDate(dateVal)) continue;
       // Skip empty strings
       if (!cols[1] && !cols[7]) continue;
-      // Skip all-zero rows (future placeholder dates)
+
       const _reg = cleanNum(cols[1]);
       const _dep = cleanNum(cols[7]);
       const _ggr = cleanNum(cols[4]);
       const _ngr = cleanNum(cols[6]);
       const _vt  = cleanNum(cols[3]);
       const _apl = cleanNum(cols[2]);
-      if (_reg === 0 && _dep === 0 && _ggr === 0 && _ngr === 0 && _vt === 0 && _apl === 0) continue;
+      const _bon = cleanNum(cols[5]);
+      // Skip all-zero rows (future placeholder dates with no data yet)
+      if (_reg === 0 && _dep === 0 && _ggr === 0 && _ngr === 0 && _vt === 0 && _apl === 0 && _bon === 0) continue;
 
       cur.rows.push({
         date: dateVal,
@@ -1625,7 +1658,138 @@ export default function App() {
 
     const headers = parseCsvLine(lines[headerLineIdx], delim);
     const rows = lines.slice(headerLineIdx + 1).map(l => parseCsvLine(l, delim));
-    return { headers, rows };
+
+    // ── Smart side-table extraction ───────────────────────────────────────────
+    // Strategy: scan EVERY row (and the header row) for a cell that looks like a
+    // "live count" or "reels count" header. Different CSV designs label these columns
+    // differently, so we use broad keyword sets. Once we find the header row we read
+    // data from subsequent rows until the name cell is empty.
+    //
+    // Supported layouts:
+    //  • Side-table header in main header row (ROLLEM/WFL): cols named "TALENT'S NAME, REELS, LIVESTREAM"
+    //  • Side-table header inside a data row (T2B): rows[n] has "TALENT'S NAME, LIVESTREAM COUNT, REELS COUNT"
+    //  • Multiple period sub-sections (e.g., FEBRUARY / JANUARY 23-31) — all accumulated into totals
+    //
+    // Column matching uses broad keyword sets plus standalone exact-match terms so bare
+    // headers like "LIVESTREAM" (no "count") are recognized alongside "LIVESTREAM COUNT".
+    const nc = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const isLiveCountHeader = (n, siblingHasReels) =>
+      // With qualifier word: "LIVESTREAM COUNT", "LIVE TOTAL", "STREAM NUM" …
+      ((n.includes('live') || n.includes('stream')) &&
+       (n.includes('count') || n.includes('total') || n.includes('num'))) ||
+      // Standalone bare header — ONLY accepted when the same row also has an explicit
+      // reels column (siblingHasReels=true), to avoid matching FORMAT cell values like "Livestream"
+      (siblingHasReels &&
+        (n === 'livestream' || n === 'live' || n === 'lives' ||
+         n === 'streams'   || n === 'livestreams'));
+
+    const isReelsCountHeader = n =>
+      (n.includes('reel') &&
+       (n.includes('count') || n.includes('total') || n.includes('num'))) ||
+      n === 'reels' || n === 'reel';
+
+    const isNameHeader = n =>
+      n.includes('talent') || n.includes('streamer') ||
+      n.includes('creator') || n === 'name';
+
+    // Returns column indices if cells look like a side-table header row, else null
+    const detectSideCols = (cells) => {
+      let nameCol = -1, liveCol = -1, reelsCol = -1;
+      // First pass: find reels column (no ambiguity — "reels" never appears as a data value)
+      cells.forEach((c, ci) => { if (isReelsCountHeader(nc(c))) reelsCol = ci; });
+      // Second pass: find live column — allow bare "LIVESTREAM" only when reels col already found
+      const siblingHasReels = reelsCol >= 0;
+      cells.forEach((c, ci) => { if (isLiveCountHeader(nc(c), siblingHasReels)) liveCol = ci; });
+      if (liveCol < 0 || reelsCol < 0) return null;
+      // Search left of the count columns for an explicit name header; fallback = adjacent left cell
+      const leftBound = Math.min(liveCol, reelsCol);
+      for (let ci = leftBound - 1; ci >= 0; ci--) {
+        const n = nc(cells[ci]);
+        if (n.length > 0) {
+          if (isNameHeader(n) || ci < leftBound - 1) { nameCol = ci; break; }
+          if (nameCol < 0) nameCol = ci;
+        }
+      }
+      if (nameCol < 0 && leftBound > 0) nameCol = leftBound - 1;
+      return { nameCol, liveCol, reelsCol };
+    };
+
+    // True when a name cell is a section/period label, not a real streamer name.
+    // e.g., "FEBRUARY", "January 23 - 31", "TOTAL"
+    const MONTH_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+    const looksLikeSectionName = name =>
+      MONTH_RE.test(name.trim()) ||
+      /\d.*[-–].*\d/.test(name) ||
+      /^(total|grand\s*total|summary|subtotal)$/i.test(name.trim());
+
+    // Collect all side-table sections (supports multi-period CSVs)
+    // Each section: { cols, dataRows, inlineLayout }
+    //   inlineLayout=true  → side-table header was in the MAIN header row;
+    //                         side data shares rows with main data (e.g. ROLLEM/WFL).
+    //                         Do NOT skip rows because col 0 is a date — just skip
+    //                         rows where the name cell is empty.
+    //   inlineLayout=false → side-table header was embedded inside a data row (e.g. T2B);
+    //                         main rows must be filtered out by date in col 0.
+    const sections = [];
+
+    // 1. Check the main header row first (inline layout)
+    const mainSideCols = detectSideCols(headers);
+    if (mainSideCols) {
+      // Data rows may carry distinct period sub-headers on the right side.
+      // Detect those re-appearing headers to split into sections.
+      let curCols = mainSideCols, curStart = 0;
+      for (let ri = 0; ri < rows.length; ri++) {
+        const found = detectSideCols(rows[ri]);
+        if (found && ri > 0) {
+          sections.push({ cols: curCols, dataRows: rows.slice(curStart, ri), inlineLayout: true });
+          curCols = found; curStart = ri + 1;
+        }
+      }
+      sections.push({ cols: curCols, dataRows: rows.slice(curStart), inlineLayout: true });
+    } else {
+      // 2. Scan all data rows for embedded side-table header(s) (separate-section layout)
+      let curCols = null, curStart = null;
+      for (let ri = 0; ri < rows.length; ri++) {
+        const found = detectSideCols(rows[ri]);
+        if (found) {
+          if (curCols !== null) sections.push({ cols: curCols, dataRows: rows.slice(curStart, ri), inlineLayout: false });
+          curCols = found; curStart = ri + 1;
+        }
+      }
+      if (curCols !== null) sections.push({ cols: curCols, dataRows: rows.slice(curStart), inlineLayout: false });
+    }
+
+    // Aggregate all sections — values for the same streamer are summed across periods
+    const sideTable = {};
+    sections.forEach(({ cols, dataRows, inlineLayout }) => {
+      const { nameCol, liveCol, reelsCol } = cols;
+      dataRows.forEach(cells => {
+        const name      = (cells[nameCol] || '').trim();
+        const live      = Math.round(cleanNum(cells[liveCol]  || 0));
+        const reels     = Math.round(cleanNum(cells[reelsCol] || 0));
+
+        if (!name) return;
+        if (looksLikeSectionName(name)) return;   // "FEBRUARY", "JAN 23-31", "TOTAL" …
+
+        // For separate-section layout, skip rows where the name cell looks like a header
+        // (e.g. "TALENT'S NAME" re-appearing in a data row from the main table columns).
+        // We DON'T filter by date in col 0 — T2B has dates in col 0 on every side-data row.
+        if (!inlineLayout && (isNameHeader(nc(name)) || isLiveCountHeader(nc(name)))) return;
+
+        if (live === 0 && reels === 0) return;     // nothing to record
+
+        // Accumulate so multi-period CSVs produce campaign totals
+        if (sideTable[name]) {
+          sideTable[name].live  += live;
+          sideTable[name].reels += reels;
+        } else {
+          sideTable[name] = { live, reels };
+        }
+      });
+    });
+
+    return { headers, rows, sideTable };
   }
 
   function autoMapColumns(headers) {
@@ -1651,12 +1815,24 @@ export default function App() {
   }
 
   function buildCampaignPreview(rawRows, mapping) {
+    // Cache normalized name lookups so we don't re-run smartMatchStreamer for every row
+    const nameCache = {};
+    const normalizeStreamer = (raw) => {
+      if (!raw) return raw;
+      if (nameCache[raw] !== undefined) return nameCache[raw];
+      // `streamers` useMemo is defined later in the component but is in scope when this
+      // function is actually called (always from an event handler, after full render).
+      const knownList = (typeof streamers !== 'undefined' && Array.isArray(streamers)) ? streamers : [];
+      const resolved = smartMatchStreamer(raw, '', '', knownList, '') || raw;
+      nameCache[raw] = resolved;
+      return resolved;
+    };
     return rawRows.map(row => ({
       date:     normDate(mapping.date     !== undefined ? row[parseInt(mapping.date)]     : ''),
       site:     mapping.site !== undefined
                   ? (row[parseInt(mapping.site)] || '').trim()
                   : (mapping._defaultSite || ''),
-      streamer: mapping.streamer !== undefined ? (row[parseInt(mapping.streamer)] || '').trim() : '',
+      streamer: normalizeStreamer((mapping.streamer !== undefined ? (row[parseInt(mapping.streamer)] || '') : '').trim()),
       spend:    cleanNum(mapping.spend !== undefined ? row[parseInt(mapping.spend)] : 0),
       reg:      Math.round(cleanNum(mapping.reg !== undefined ? row[parseInt(mapping.reg)] : 0)),
       dep:      cleanNum(mapping.dep   !== undefined ? row[parseInt(mapping.dep)]   : 0),
@@ -1684,14 +1860,22 @@ export default function App() {
   // EOD-specific state
   const [eodSections, setEodSections]   = useState([]);   // [{ streamer, editName, site, selected, rows }]
   const [eodSite,     setEodSite]       = useState('');
+  const [importing,    setImporting]     = useState(false);
 
   // Campaign-specific state
-  const [campHeaders,  setCampHeaders]  = useState([]);
-  const [campRawRows,  setCampRawRows]  = useState([]);
-  const [campMapping,  setCampMapping]  = useState({});
-  const [campPreview,  setCampPreview]  = useState([]);
+  const [campHeaders,   setCampHeaders]   = useState([]);
+  const [campRawRows,   setCampRawRows]   = useState([]);
+  const [campMapping,   setCampMapping]   = useState({});
+  const [campPreview,   setCampPreview]   = useState([]);
+  const [campSideTable, setCampSideTable] = useState({});
   const campRequiredFields = ['date', 'site', 'streamer'];
   const campAllFields      = ['date', 'site', 'streamer', 'spend', 'reg', 'dep', 'type', 'link'];
+
+  // saveStreamTally helper — defined here so handleCampaignImport can call it
+  const saveStreamTally = (updated) => {
+    setStreamTally(updated);
+    try { localStorage.setItem('streamTally', JSON.stringify(updated)); } catch {}
+  };
 
   // ─── IMPORT HANDLERS ──────────────────────────────────────────────────────
   const handleImportFile = (file) => {
@@ -1723,7 +1907,7 @@ export default function App() {
         setEodSite(detectedSite);
         setImportMode('eod');
       } else {
-        const { headers, rows } = parseFlatCSV(text);
+        const { headers, rows, sideTable } = parseFlatCSV(text);
         if (!headers.length) return;
         const mapping = autoMapColumns(headers);
         // If no site column was found, infer the site from the filename
@@ -1736,6 +1920,7 @@ export default function App() {
         setCampRawRows(rows);
         setCampMapping(mapping);
         setCampPreview(buildCampaignPreview(rows, mapping));
+        setCampSideTable(sideTable || {});
         setImportMode('campaign');
       }
       setImportStep(2);
@@ -1744,6 +1929,8 @@ export default function App() {
   };
 
   const handleEODImport = async () => {
+    if (importing) return;
+    setImporting(true);
     const site = eodSite;
     const newPerf = { ...creatorPerfData };
     const upsertRows = [];
@@ -1776,10 +1963,13 @@ export default function App() {
     setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
     await saveFileRecord(`EOD · ${eodSite} · ${eodSections.filter(s=>s.selected).map(s=>s.editName).join(', ')}`);
+    setImporting(false);
     setImportStep(3);
   };
 
   const handleCampaignImport = async (skipDuplicates) => {
+    if (importing) return;
+    setImporting(true);
     const isDup = (e) => data.some(d =>
       d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.link === e.link
     );
@@ -1787,8 +1977,91 @@ export default function App() {
     const skipped  = campPreview.length - toImport.length;
     const { data: newRows, error } = await supabase.from('campaigns').insert(toImport).select();
     if (!error && newRows) setData(prev => [...prev, ...newRows]);
-    setImportResult({ imported: toImport.length, skipped, mode: 'campaign' });
+    let noStreamCount = 0;
+
+    // Auto-detect no-stream days from MEDIA BUYER CSV:
+    // For each streamer in this file, find dates within the file's range where they have NO entry.
+    // Use campPreview (all rows) not toImport (may be empty if all are duplicates) so the site
+    // is always resolved even when re-importing the same file a second time.
+    const site = campMapping._defaultSite || (campPreview[0]?.site ?? '') || (toImport[0]?.site ?? '');
+    if (site && toImport.length > 0) {
+      const allDates = [...new Set(toImport.map(r => r.date))].sort();
+      const minDate = allDates[0], maxDate = allDates[allDates.length - 1];
+      // Build full date range between min and max
+      const dateRange = [];
+      const d = new Date(minDate);
+      const end = new Date(maxDate);
+      while (d <= end) {
+        dateRange.push(d.toISOString().split('T')[0]);
+        d.setDate(d.getDate() + 1);
+      }
+      const streamers = [...new Set(toImport.map(r => r.streamer))].filter(Boolean);
+      // For no-stream detection, only Livestream rows count as "streamed".
+      // Reels-only days should still be marked as no-stream days.
+      const liveRows = toImport.filter(r => !r.type || r.type === 'Live');
+      // For each streamer, dates they did a livestream
+      const streamedOn = {};
+      streamers.forEach(s => {
+        streamedOn[s] = new Set(liveRows.filter(r => r.streamer === s).map(r => r.date));
+      });
+
+      // Normalize CSV streamer names to match EOD names already in creatorPerfData for this site.
+      // e.g. "AKOSI DOGIE" in CSV → "Dogie" in EOD keys → use "Dogie" for no-stream keys
+      // so the Creator Performance view can find them.
+      const perfStreamersForSite = [...new Set(
+        Object.keys(creatorPerfData)
+          .map(k => k.split('|'))
+          .filter(parts => parts[2] === site)
+          .map(parts => parts[1])
+      )];
+      const streamerNameMap = {};
+      streamers.forEach(s => {
+        if (perfStreamersForSite.length > 0) {
+          const matched = smartMatchStreamer(s, '', '', perfStreamersForSite, '');
+          streamerNameMap[s] = matched || s;
+        } else {
+          streamerNameMap[s] = s;
+        }
+      });
+
+      // Build no-stream keys for missing dates
+      const noStreamKeys = [];
+      streamers.forEach(s => {
+        const normalizedName = streamerNameMap[s];
+        dateRange.forEach(date => {
+          if (!streamedOn[s].has(date)) {
+            noStreamKeys.push({ key: `${date}|${normalizedName}|${site}` });
+          }
+        });
+      });
+      if (noStreamKeys.length > 0) {
+        await supabase.from('no_stream').upsert(noStreamKeys, { onConflict: 'key' });
+        const newNS = { ...noStreamData };
+        noStreamKeys.forEach(({ key }) => { newNS[key] = true; });
+        setNoStreamData(newNS);
+        noStreamCount = noStreamKeys.length;
+      }
+    }
+    // Persist stream tally from side table into streamTally state + localStorage.
+    // Use campPreview (never empty) rather than toImport (could be empty on re-import).
+    if (Object.keys(campSideTable).length > 0 && site) {
+      const normA = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const previewStreamers = [...new Set(campPreview.map(r => r.streamer))].filter(Boolean);
+      const updated = { ...streamTally };
+      Object.entries(campSideTable).forEach(([rawName, counts]) => {
+        // Try alias first, then smartMatch against known streamers, then fall back to raw name
+        const alias = STREAMER_ALIASES[normA(rawName)];
+        const normalizedName = alias || smartMatchStreamer(rawName, '', '', previewStreamers, '') || rawName;
+        // Store with lowercase key so lookup is case-insensitive
+        const tallyKey = `${site.toLowerCase()}|${normalizedName.toLowerCase()}`;
+        updated[tallyKey] = counts;
+      });
+      saveStreamTally(updated);
+    }
+
+    setImportResult({ imported: toImport.length, skipped, noStream: noStreamCount, mode: 'campaign' });
     await saveFileRecord(`Campaign · ${toImport.length} rows`);
+    setImporting(false);
     setImportStep(3);
   };
 
@@ -1804,6 +2077,7 @@ export default function App() {
     setCampMapping({});
     setCampPreview([]);
     setImportResult(null);
+    setImporting(false);
   };
 
   const uniqueDates = useMemo(() => [...new Set(data.map(d => d.date))].sort(), [data]);
@@ -1828,13 +2102,17 @@ export default function App() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // Auto-expand date range only when user has already selected dates and new imported data goes beyond
+  // Auto-initialize date range from data, or expand it if new data goes beyond the current selection
   useEffect(() => {
-    if (minDate && startDate && minDate < startDate) setStartDate(minDate);
+    if (!minDate) return;
+    if (!startDate) setStartDate(minDate);           // first load — set from data
+    else if (minDate < startDate) setStartDate(minDate); // new data extends earlier
   }, [minDate]);
 
   useEffect(() => {
-    if (maxDate && endDate && maxDate > endDate) setEndDate(maxDate);
+    if (!maxDate) return;
+    if (!endDate) setEndDate(maxDate);               // first load — set from data
+    else if (maxDate > endDate) setEndDate(maxDate); // new data extends later
   }, [maxDate]);
 
   // --- DERIVED METRICS ---
@@ -1981,10 +2259,21 @@ export default function App() {
       summary[streamer].ngr   += parseFloat(val.ngr)   || 0;
     });
 
+    // Step 3: overlay liveCount/reelsCount from imported side-table tally when available.
+    // This is authoritative (counts prepared by the media buyer) and handles cases where
+    // campaign rows have mismatched names or types.
+    Object.values(summary).forEach(s => {
+      const tallyKey = `${(s.site||'').toLowerCase()}|${(s.name||'').toLowerCase()}`;
+      if (streamTally[tallyKey]) {
+        s.liveCount  = streamTally[tallyKey].live  ?? s.liveCount;
+        s.reelsCount = streamTally[tallyKey].reels ?? s.reelsCount;
+      }
+    });
+
     return Object.values(summary)
       .map(({ _adsKeysAdded, ...rest }) => rest)
       .sort((a, b) => b.dep - a.dep);
-  }, [filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
+  }, [filteredData, adsReportData, creatorPerfData, startDate, endDate, filterSite, filterStreamer, streamTally]);
 
   // Chart Data (Daily Totals)
   const chartData = useMemo(() => {
@@ -2708,6 +2997,7 @@ export default function App() {
           noStreamData={noStreamData}
           onMarkNoStream={handleMarkNoStream}
           onUnmarkNoStream={handleUnmarkNoStream}
+          streamTally={streamTally}
         />
       )}
 
@@ -3161,6 +3451,7 @@ export default function App() {
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     <span className="font-bold text-emerald-600">{importResult.imported} {importResult.mode === 'eod' ? 'day-entries' : 'rows'}</span> saved successfully.
                     {importResult.skipped > 0 && <> <span className="font-bold text-amber-600">{importResult.skipped} duplicates</span> skipped.</>}
+                    {(importResult.noStream ?? 0) > 0 && <> <span className="font-bold text-slate-500">{importResult.noStream} no-stream days</span> auto-marked.</>}
                   </p>
                   {importResult.mode === 'eod' && (
                     <p className="text-xs text-slate-400 mt-2">View results in the Creator Performance tab.</p>
@@ -3182,10 +3473,12 @@ export default function App() {
                   <button onClick={() => setImportStep(1)} className="border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-700">← Back</button>
                   <button
                     onClick={handleEODImport}
-                    disabled={!eodSite || eodSections.every(s => !s.selected)}
+                    disabled={importing || !eodSite || eodSections.every(s => !s.selected)}
                     className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-5 rounded-lg text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Upload size={14}/> Import EOD Data ({eodSections.filter(s=>s.selected).reduce((a,s)=>a+s.rows.length,0)} entries)
+                    {importing
+                      ? <><svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Importing…</>
+                      : <><Upload size={14}/> Import EOD Data ({eodSections.filter(s=>s.selected).reduce((a,s)=>a+s.rows.length,0)} entries)</>}
                   </button>
                 </>
               )}
@@ -3205,7 +3498,7 @@ export default function App() {
                       {dupCount > 0 && (
                         <button
                           onClick={() => handleCampaignImport(true)}
-                          disabled={missingRequired}
+                          disabled={importing || missingRequired}
                           className="flex items-center gap-1.5 border border-amber-400 dark:border-amber-500 text-amber-700 dark:text-amber-300 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <AlertTriangle size={14}/> Skip Duplicates ({campPreview.length - dupCount})
@@ -3213,10 +3506,13 @@ export default function App() {
                       )}
                       <button
                         onClick={() => handleCampaignImport(false)}
-                        disabled={missingRequired || campPreview.length === 0}
+                        disabled={importing || missingRequired || campPreview.length === 0}
                         className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        <Upload size={14}/> Import All ({campPreview.length})
+                        {importing
+                          ? <><svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Importing…</>
+                          : <><Upload size={14}/> Import All ({campPreview.length})</>
+                        }
                       </button>
                     </div>
                   </>
@@ -3686,7 +3982,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
     </div>
   );
 }
-function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin }) {
+function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfData, onEdit, onSummaryChange, formatPHP, streamers, sites, onAddEntry, onEditEntry, onDeleteEntry, onDeleteDay, noStreamData, onMarkNoStream, onUnmarkNoStream, onImportEOD, isAdmin, streamTally }) {
   const mw = layoutMode === 'compact' ? 'max-w-7xl mx-auto px-4 md:px-6' : 'max-w-[1600px] mx-auto px-4 md:px-6';
   const [selectedStreamer, setSelectedStreamer] = React.useState(streamers[0] || '');
   const [selectedSite, setSelectedSite] = React.useState('All');
@@ -3739,9 +4035,18 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
     (selectedSite === 'All' || d.site === selectedSite)
   );
 
-  // Stream / Reels counts — derived directly from the already-filtered creatorEntries
-  const totalStreams = creatorEntries.filter(d => d.type === 'Live').length;
-  const totalReels   = creatorEntries.filter(d => d.type === 'Reels').length;
+  // Stream / Reels counts — derived from campaign rows, overridden by side-table tally when available
+  const rawStreams = creatorEntries.filter(d => d.type === 'Live').length;
+  const rawReels   = creatorEntries.filter(d => d.type === 'Reels').length;
+  // Resolve the active site (use first matching site when selectedSite is 'All')
+  const activeSite = selectedSite !== 'All'
+    ? selectedSite
+    : (creatorEntries[0]?.site ||
+       Object.keys(creatorPerfData).find(k => k.split('|')[1] === selectedStreamer)?.split('|')[2] || '');
+  const tallyKey    = `${(activeSite||'').toLowerCase()}|${(selectedStreamer||'').toLowerCase()}`;
+  const tallyData   = (streamTally || {})[tallyKey];
+  const totalStreams = tallyData?.live  ?? rawStreams;
+  const totalReels   = tallyData?.reels ?? rawReels;
 
   // Get dates from campaign entries AND from creatorPerfData (so EOD-only days show up too)
   const perfDates = Object.keys(creatorPerfData)
