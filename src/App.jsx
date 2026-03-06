@@ -1381,21 +1381,34 @@ export default function App() {
 
   const handleClearAllData = async () => {
     setClearingData(true);
+    // Always clear local state first so UI is immediately empty
+    setData([]);
+    setAdsReportData({});
+    setCreatorPerfData({});
+    setNoStreamData({});
+    setUploadedFiles([]);
+    setStreamTally({});
+    try { localStorage.removeItem('streamTally'); } catch {}
     try {
+      // Try multiple delete strategies to ensure campaigns are wiped
+      const delCampaigns = await supabase.from('campaigns').delete().gte('created_at', '2000-01-01');
+      if (delCampaigns.error) {
+        // Fallback: try with a different filter
+        await supabase.from('campaigns').delete().neq('site', '__never__');
+      }
       await Promise.all([
-        supabase.from('campaigns').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-        supabase.from('ads_report').delete().neq('key', '__placeholder__'),
-        supabase.from('creator_perf').delete().neq('key', '__placeholder__'),
-        supabase.from('no_stream').delete().neq('key', '__placeholder__'),
+        supabase.from('ads_report').delete().gte('created_at', '2000-01-01'),
+        supabase.from('creator_perf').delete().gte('created_at', '2000-01-01'),
+        supabase.from('no_stream').delete().gte('created_at', '2000-01-01'),
         supabase.from('uploaded_files').delete().not('file_name', 'is', null),
       ]);
-      setData([]);
-      setAdsReportData({});
-      setCreatorPerfData({});
-      setNoStreamData({});
-      setUploadedFiles([]);
-      setStreamTally({});
-      try { localStorage.removeItem('streamTally'); } catch {}
+      // Verify campaigns were actually deleted
+      const { count } = await supabase.from('campaigns').select('*', { count: 'exact', head: true });
+      if (count > 0) {
+        alert(`⚠️ ${count} campaign rows could not be deleted from the database. This is likely a permissions issue.\n\nPlease run this in your Supabase SQL Editor:\n\nDELETE FROM public.campaigns;\nDELETE FROM public.ads_report;\nDELETE FROM public.creator_perf;\nDELETE FROM public.no_stream;\nDELETE FROM public.uploaded_files;\n\nLocal data has been wiped — refresh after running the SQL.`);
+      }
+    } catch (e) {
+      alert(`⚠️ Error clearing database: ${e.message}\n\nLocal data has been wiped.`);
     } finally {
       setClearingData(false);
       setShowClearModal(false);
@@ -1450,18 +1463,50 @@ export default function App() {
 
   function cleanNum(val) {
     if (val === null || val === undefined || val === '') return 0;
-    return parseFloat(String(val).replace(/[₱,\s]/g, '')) || 0;
+    // Strip any currency symbol (₱ peso, $ dollar, ¥ yen, € euro, £ pound) plus commas/spaces
+    return parseFloat(String(val).replace(/[₱$¥€£,\s]/g, '')) || 0;
   }
 
   function normDate(s) {
     if (!s) return '';
     s = s.trim();
+    // Strip time portion from datetime strings (e.g. "2026-01-23 10:30:00" or "1/23/2026 10:30 AM")
+    s = s.replace(/\s+\d{1,2}:\d{2}(:\d{2})?(\s*(AM|PM))?$/i, '').trim();
+    // Already ISO
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // YYYY/MM/DD
+    const ymd2 = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if (ymd2) return `${ymd2[1]}-${ymd2[2].padStart(2,'0')}-${ymd2[3].padStart(2,'0')}`;
+    // MM/DD/YYYY or M/D/YYYY
     const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+    // MM-DD-YYYY
+    const mdy2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (mdy2) return `${mdy2[3]}-${mdy2[1].padStart(2,'0')}-${mdy2[2].padStart(2,'0')}`;
     const mo = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    // DD Mon YYYY  (e.g. "05 Feb 2026")
     const dmy = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
     if (dmy) { const m = mo[dmy[2].toLowerCase().slice(0,3)]; if (m) return `${dmy[3]}-${String(m).padStart(2,'0')}-${dmy[1].padStart(2,'0')}`; }
+    // DD-Mon-YYYY  (e.g. "05-Feb-2026") or D-Mon-YY (e.g. "2-Feb-26" — Excel short format)
+    const dmyd = s.match(/^(\d{1,2})-([A-Za-z]+)-(\d{2,4})$/);
+    if (dmyd) {
+      const m = mo[dmyd[2].toLowerCase().slice(0,3)];
+      if (m) {
+        const yr = dmyd[3].length === 2 ? (parseInt(dmyd[3], 10) >= 50 ? `19${dmyd[3]}` : `20${dmyd[3]}`) : dmyd[3];
+        return `${yr}-${String(m).padStart(2,'0')}-${dmyd[1].padStart(2,'0')}`;
+      }
+    }
+    // Mon DD, YYYY  (e.g. "Feb 5, 2026")
+    const mdy3 = s.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (mdy3) { const m = mo[mdy3[1].toLowerCase().slice(0,3)]; if (m) return `${mdy3[3]}-${String(m).padStart(2,'0')}-${mdy3[2].padStart(2,'0')}`; }
+    // Excel serial date (numeric, e.g. 46054)
+    if (/^\d{5}$/.test(s)) {
+      const serial = parseInt(s, 10);
+      if (serial > 40000 && serial < 60000) {
+        const d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+        return d.toISOString().split('T')[0];
+      }
+    }
     return s;
   }
 
@@ -1480,17 +1525,26 @@ export default function App() {
 
   function siteFromFilename(name) {
     const f = name.toLowerCase();
-    // Check full words first (more specific)
+    // Check full words / known aliases first (most specific)
     if (f.includes('time2bet') || /\bt2b\b/.test(f) || f.startsWith('t2b ') || f.startsWith('t2b_') || f.startsWith('t2b-')) return 'T2B';
-    if (f.includes('rollem') || /\brlm\b/.test(f) || f.includes('_rlm') || f.includes('-rlm')) return 'RLM';
-    if (/\bwfl\b/.test(f) || f.includes('_wfl') || f.includes('-wfl') || f.includes(' wfl')) return 'WFL';
-    if (/\bcow\b/.test(f)) return 'COW';
-    // Fallback: look for known site codes anywhere in the filename
+    if (f.includes('rollem') || /\brlm\b/.test(f) || f.includes('_rlm') || f.includes('-rlm') || f.includes(' rlm')) return 'RLM';
+    if (/\bwfl\b/.test(f) || f.includes('_wfl') || f.includes('-wfl') || f.includes(' wfl') || f.includes('wfl-88') || f.includes('wfl88')) return 'WFL';
+    if (/\bcow\b/.test(f) || f.includes('cashonwins') || f.includes('cash on wins')) return 'COW';
+    // Generic fallback: grab any site code token
     const m = f.match(/\b(t2b|rlm|wfl|cow)\b/);
-    if (m) {
-      const map = { t2b: 'T2B', rlm: 'RLM', wfl: 'WFL', cow: 'COW' };
-      return map[m[1]] || '';
-    }
+    if (m) { const map = { t2b: 'T2B', rlm: 'RLM', wfl: 'WFL', cow: 'COW' }; return map[m[1]] || ''; }
+    return '';
+  }
+
+  // Try to infer the site from the file's actual text content (first ~30 lines).
+  // Useful when the filename has no site code but the CSV header or URLs contain one.
+  function siteFromContent(text) {
+    const sample = text.slice(0, 3000).toLowerCase();
+    // Check URLs and domain names embedded in the CSV
+    if (sample.includes('wfl-88') || sample.includes('wfl88') || sample.includes('/wfl')) return 'WFL';
+    if (sample.includes('rollem') || sample.includes('rlm88') || sample.includes('/rlm')) return 'RLM';
+    if (sample.includes('time2bet') || sample.includes('t2b') ) return 'T2B';
+    if (sample.includes('cashonwins') || sample.includes('cow')) return 'COW';
     return '';
   }
 
@@ -1675,21 +1729,61 @@ export default function App() {
   }
 
   // ─── FLAT CSV PARSING (Campaign Data) ────────────────────────────────────
+  // Split raw CSV text into logical lines, respecting quoted fields that may contain
+  // embedded newlines (e.g. URLs split across lines inside double-quotes).
+  function splitCsvText(text) {
+    const lines = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        inQ = !inQ;
+        cur += c;
+      } else if (!inQ && c === '\r') {
+        // swallow \r; \n will follow and flush the line
+      } else if (!inQ && c === '\n') {
+        lines.push(cur);
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
   function parseFlatCSV(text) {
+    // Strip UTF-8 BOM if present (common in Excel-exported CSV files)
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
     // Filter lines that are truly empty OR contain only commas/tabs/spaces (no real content)
-    const lines = text.split(/\r?\n/).filter(l => l.replace(/[,\t\s]/g, '').length > 0);
+    const lines = splitCsvText(text).filter(l => l.replace(/[,;\t\s]/g, '').length > 0);
     if (lines.length < 2) return { headers: [], rows: [] };
-    const delim = lines[0].split('\t').length > lines[0].split(',').length ? '\t' : ',';
+    // Detect delimiter: tab > semicolon > comma (score by which produces more columns in first line)
+    const firstLine = lines[0];
+    const tabCols  = firstLine.split('\t').length;
+    const semiCols = firstLine.split(';').length;
+    const commCols = firstLine.split(',').length;
+    const delim = tabCols >= semiCols && tabCols >= commCols ? '\t'
+                : semiCols > commCols ? ';' : ',';
 
     // Detect the actual header row — some CSVs (e.g. MEDIA BUYER tracker) have title rows
     // like "MEDIA BUYER'S TRACKER,,,,,,,,TALENT MANAGER'S TRACKER,..." before the real headers.
-    // Score each of the first 10 lines by how many cells match recognised field keywords,
+    // Score each of the first 20 lines by how many cells match recognised field keywords,
     // then pick the row with the highest score (avoids false matches on title rows).
-    const headerKeywords = ['date','livestreamdate','name','talentsname','talent','streamer','cost','spend','format','link','reg','dep','site'];
+    const headerKeywords = [
+      'date','livestreamdate','streamdate','name','talentsname','talent','streamer','creator','influencer',
+      'cost','spend','adspend','budget','boost','boosting',
+      'format','type','contenttype',
+      'link','url',
+      'reg','register','registrations','signups','newreg',
+      'dep','deposit','deposits','fd','ftd',
+      'site','platform','page',
+    ];
     const normH = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
     let headerLineIdx = 0;
     let bestScore = 0;
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    for (let i = 0; i < Math.min(lines.length, 20); i++) {
       const cells = parseCsvLine(lines[i], delim);
       const score = cells.filter(c => c.trim()).reduce((acc, c) => {
         const n = normH(c);
@@ -1759,7 +1853,10 @@ export default function App() {
 
     // True when a name cell is a section/period label, not a real streamer name.
     // e.g., "FEBRUARY", "January 23 - 31", "TOTAL"
-    const MONTH_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+    // Full-name alternatives come first so "APRIL" matches before the abbreviated "APR";
+    // the trailing group requires a digit, dash, or end-of-string so that real names
+    // like "APRIL JOY" (starts with month word but continues with letters) are NOT filtered.
+    const MONTH_RE = /^(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\s*\d|\s*[-–]|\s*$)/i;
     const looksLikeSectionName = name =>
       MONTH_RE.test(name.trim()) ||
       /\d.*[-–].*\d/.test(name) ||
@@ -1778,17 +1875,15 @@ export default function App() {
     // 1. Check the main header row first (inline layout)
     const mainSideCols = detectSideCols(headers);
     if (mainSideCols) {
-      // Data rows may carry distinct period sub-headers on the right side.
-      // Detect those re-appearing headers to split into sections.
-      let curCols = mainSideCols, curStart = 0;
-      for (let ri = 0; ri < rows.length; ri++) {
-        const found = detectSideCols(rows[ri]);
-        if (found && ri > 0) {
-          sections.push({ cols: curCols, dataRows: rows.slice(curStart, ri), inlineLayout: true });
-          curCols = found; curStart = ri + 1;
-        }
-      }
-      sections.push({ cols: curCols, dataRows: rows.slice(curStart), inlineLayout: true });
+      // Inline layout: use mainSideCols for ALL data rows in one pass.
+      // Period sub-section labels (e.g. "JANUARY 23 - 31", "FEBUARY") appearing
+      // in the name column are already filtered by looksLikeSectionName, so there
+      // is no need to split into separate sections.
+      // Previously the code re-ran detectSideCols on each data row and updated
+      // curCols when it found a boundary row; this caused nameCol to shift to
+      // whatever non-empty cell was left of the REELS column (e.g. TIME values
+      // like "8:08PM" in ROLLEM), producing garbage entries in the sideTable.
+      sections.push({ cols: mainSideCols, dataRows: rows, inlineLayout: true });
     } else {
       // 2. Scan all data rows for embedded side-table header(s) (separate-section layout)
       let curCols = null, curStart = null;
@@ -1837,20 +1932,21 @@ export default function App() {
   function autoMapColumns(headers) {
     const mapping = {};
     const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // Ordered by priority — first match wins per field
     const matchers = {
-      date:     ['date','livestreamdate','streamdate','day'],
-      site:     ['site'],
-      streamer: ['streamer','talentsname','talent','name','creator'],
-      spend:    ['spend','cost','adspend','adcost'],
-      reg:      ['reg','register','registers','registrations'],
-      dep:      ['dep','deposit','deposits','totaldeposit'],
-      type:     ['type','format'],
-      link:     ['link','url','livestreamlink'],
+      date:     ['livestreamdate','streamdate','dateofstream','date','day'],
+      site:     ['site','platform','sitename'],
+      streamer: ['talentsname','talentname','streamer','creator','influencer','contentcreator','talent','name'],
+      spend:    ['adspend','adcost','adbudget','spend','cost','budget','boosting','boost'],
+      reg:      ['newreg','newregistrations','reg','register','registers','registrations','signups','signup'],
+      dep:      ['totaldeposit','firstdeposit','ftd','fd','dep','deposit','deposits'],
+      type:     ['contenttype','streamtype','posttype','type','format'],
+      link:     ['livestreamlink','streamlink','adtrackinglink','link','url'],
     };
     headers.forEach((h, i) => {
       const n = norm(h);
       for (const [field, ms] of Object.entries(matchers)) {
-        if (mapping[field] === undefined && ms.some(m => n.includes(m))) mapping[field] = String(i);
+        if (mapping[field] === undefined && ms.some(m => n === m || n.includes(m))) mapping[field] = String(i);
       }
     });
     return mapping;
@@ -1887,7 +1983,8 @@ export default function App() {
       dep:      cleanNum(mapping.dep   !== undefined ? row[parseInt(mapping.dep)]   : 0),
       type:     (() => { const raw = (mapping.type !== undefined ? (row[parseInt(mapping.type)] || 'Live') : 'Live').trim(); return /livestream/i.test(raw) ? 'Live' : raw; })(),
       link:     mapping.link !== undefined ? (row[parseInt(mapping.link)] || '').trim() : '',
-    })).filter(r => r.date && r.streamer);
+      status:   'Pending',
+    })).filter(r => isValidDate(r.date) && r.streamer);
   }
 
   // ─── CLEAR ALL DATA STATE ──────────────────────────────────────────────────
@@ -1929,11 +2026,14 @@ export default function App() {
   // ─── XLSX → SHEETS CONVERSION ─────────────────────────────────────────────
   // Returns an array of { name, csv } for every non-blank sheet in the workbook.
   const xlsxToSheets = (arrayBuffer) => {
-    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    // cellDates:true makes SheetJS parse date cells as JS Date objects instead of
+    // using the cell's raw Excel-formatted text (e.g. "2-Feb-26" short format).
+    // dateNF forces sheet_to_csv to emit those dates as ISO yyyy-mm-dd strings.
+    const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
     return wb.SheetNames
       .map(name => ({
         name,
-        csv: XLSX.utils.sheet_to_csv(wb.Sheets[name], { blankrows: false }),
+        csv: XLSX.utils.sheet_to_csv(wb.Sheets[name], { blankrows: false, dateNF: 'yyyy-mm-dd' }),
       }))
       .filter(s => s.csv.replace(/[,\n\r\s]/g, '').length > 0); // skip fully blank sheets
   };
@@ -1976,7 +2076,7 @@ export default function App() {
         if (!headers.length) return;
         const mapping = autoMapColumns(headers);
         if (mapping.site === undefined) {
-          const siteHint = siteFromFilename(file.name);
+          const siteHint = siteFromFilename(file.name) || siteFromContent(text);
           if (siteHint) mapping._defaultSite = siteHint;
         }
         setCampHeaders(headers);
@@ -2070,9 +2170,9 @@ export default function App() {
         if (!headers.length) return; // skip sheets with no recognisable data
         const mapping = autoMapColumns(headers);
 
-        // Per-sheet site inference: site column > sheet name > filename
+        // Per-sheet site inference: site column > sheet name > filename > content
         if (mapping.site === undefined) {
-          const siteHint = siteFromFilename(sheet.name) || siteFromFilename(file.name);
+          const siteHint = siteFromFilename(sheet.name) || siteFromFilename(file.name) || siteFromContent(sheet.csv);
           if (siteHint) mapping._defaultSite = siteHint;
         }
 
@@ -2181,13 +2281,36 @@ export default function App() {
   const handleCampaignImport = async (skipDuplicates) => {
     if (importing) return;
     setImporting(true);
-    const isDup = (e) => data.some(d =>
+    const findDup = (e) => data.find(d =>
       d.date === e.date && d.site === e.site && d.streamer === e.streamer && d.link === e.link
     );
-    const toImport = skipDuplicates ? campPreview.filter(e => !isDup(e)) : campPreview;
-    const skipped  = campPreview.length - toImport.length;
+    // Separate rows: truly new vs existing duplicates
+    const dupRows    = campPreview.map(e => ({ preview: e, existing: findDup(e) })).filter(x => x.existing);
+    const newEntries = campPreview.filter(e => !findDup(e));
+    const toImport   = skipDuplicates ? newEntries : campPreview.filter(e => !findDup(e));
+    const skipped    = campPreview.length - toImport.length - dupRows.filter(x => x.preview.spend > 0 && x.existing.spend === 0).length;
+
+    // For duplicate rows where old spend=0 but new spend>0, update spend in DB
+    const spendUpdates = dupRows.filter(x => x.preview.spend > 0 && (x.existing.spend == null || x.existing.spend === 0));
+    for (const { preview, existing } of spendUpdates) {
+      const { error: upErr } = await supabase.from('campaigns').update({ spend: preview.spend }).eq('id', existing.id);
+      if (upErr) { console.error('[spend-update] Supabase error:', upErr); }
+      else { setData(prev => prev.map(d => d.id === existing.id ? { ...d, spend: preview.spend } : d)); }
+    }
+
     const { data: newRows, error } = await supabase.from('campaigns').insert(toImport).select();
-    if (!error && newRows) setData(prev => [...prev, ...newRows]);
+    if (error) {
+      const msg = error.message || error.code || JSON.stringify(error);
+      console.error('[campaign-insert] FULL ERROR:', JSON.stringify(error));
+      console.error('[campaign-insert] first row sample:', JSON.stringify(toImport[0]));
+      alert(`❌ Import failed:\n${msg}\n\nIf this says "column spend does not exist", run this SQL in your Supabase dashboard:\nALTER TABLE campaigns ADD COLUMN spend numeric DEFAULT 0;`);
+      setImporting(false);
+      return;
+    }
+    if (newRows) {
+      // Hard-refresh from DB so state exactly matches what Supabase stored
+      await fetchData();
+    }
     let noStreamCount = 0;
 
     // Auto-detect no-stream days from MEDIA BUYER CSV:
@@ -2195,8 +2318,8 @@ export default function App() {
     // Use campPreview (all rows) not toImport (may be empty if all are duplicates) so the site
     // is always resolved even when re-importing the same file a second time.
     const site = campMapping._defaultSite || (campPreview[0]?.site ?? '') || (toImport[0]?.site ?? '');
-    if (site && toImport.length > 0) {
-      const allDates = [...new Set(toImport.map(r => r.date))].sort();
+    if (site && campPreview.length > 0) {
+      const allDates = [...new Set(campPreview.map(r => r.date))].sort();
       const minDate = allDates[0], maxDate = allDates[allDates.length - 1];
       // Build full date range between min and max
       const dateRange = [];
@@ -2206,10 +2329,10 @@ export default function App() {
         dateRange.push(d.toISOString().split('T')[0]);
         d.setDate(d.getDate() + 1);
       }
-      const streamers = [...new Set(toImport.map(r => r.streamer))].filter(Boolean);
+      const streamers = [...new Set(campPreview.map(r => r.streamer))].filter(Boolean);
       // For no-stream detection, only Livestream rows count as "streamed".
       // Reels-only days should still be marked as no-stream days.
-      const liveRows = toImport.filter(r => !r.type || r.type === 'Live');
+      const liveRows = campPreview.filter(r => !r.type || r.type === 'Live');
       // For each streamer, dates they did a livestream
       const streamedOn = {};
       streamers.forEach(s => {
@@ -2234,6 +2357,7 @@ export default function App() {
           streamerNameMap[s] = s;
         }
       });
+
 
       // Build no-stream keys for missing dates
       const noStreamKeys = [];
@@ -2270,7 +2394,7 @@ export default function App() {
       saveStreamTally(updated);
     }
 
-    setImportResult({ imported: toImport.length, skipped, noStream: noStreamCount, mode: 'campaign' });
+    setImportResult({ imported: toImport.length, skipped, noStream: noStreamCount, spendUpdated: spendUpdates.length, mode: 'campaign' });
     await saveFileRecord(`Campaign · ${toImport.length} rows`);
     setImporting(false);
     setImportStep(3);
@@ -3675,6 +3799,7 @@ export default function App() {
                   </h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     <span className="font-bold text-emerald-600">{importResult.imported} {importResult.mode === 'eod' ? 'day-entries' : 'rows'}</span> saved successfully.
+                    {(importResult.spendUpdated ?? 0) > 0 && <> <span className="font-bold text-blue-600">{importResult.spendUpdated} ad spend values</span> updated.</>}
                     {importResult.skipped > 0 && <> <span className="font-bold text-amber-600">{importResult.skipped} duplicates</span> skipped.</>}
                     {(importResult.noStream ?? 0) > 0 && <> <span className="font-bold text-slate-500">{importResult.noStream} no-stream days</span> auto-marked.</>}
                   </p>
@@ -3910,7 +4035,8 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
   filteredData.forEach(item => {
     if (item.type === 'General') return;
     if (!grouped[item.site]) grouped[item.site] = {};
-    if (!grouped[item.site][item.streamer]) grouped[item.site][item.streamer] = { Live: { reg: 0, dep: 0 }, Reels: { reg: 0, dep: 0 } };
+    if (!grouped[item.site][item.streamer]) grouped[item.site][item.streamer] = { Live: { reg: 0, dep: 0 }, Reels: { reg: 0, dep: 0 }, spend: 0 };
+    grouped[item.site][item.streamer].spend += (item.spend || 0);
     if (item.type === 'Live') {
       grouped[item.site][item.streamer].Live.reg += item.reg;
       grouped[item.site][item.streamer].Live.dep += item.dep;
@@ -3979,6 +4105,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
       const totalBonus  = manualBonus !== 0 ? manualBonus : perf.bonus;
       const totalNGR    = manualNGR   !== 0 ? manualNGR   : perf.ngr;
       const totalBoosting = liveAds.boosting + reelsAds.boosting;
+      const totalSpend  = grouped[site][streamer].spend || 0;
 
       // Decide whether to show Live/Reels rows or a single EOD row
       const hasLive   = liveStats.reg > 0 || liveStats.dep > 0;
@@ -3988,14 +4115,15 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
       return {
         streamer, liveStats, reelsStats, liveAds, reelsAds,
         perf, hasLive, hasReels, hasEODOnly,
-        totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting,
+        totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting, totalSpend,
       };
     });
     const siteTotal = streamerData.reduce((acc, s) => ({
       reg: acc.reg + s.totalReg, dep: acc.dep + s.totalDep,
       ggr: acc.ggr + s.totalGGR, bonus: acc.bonus + s.totalBonus,
       ngr: acc.ngr + s.totalNGR, boosting: acc.boosting + s.totalBoosting,
-    }), { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0, boosting: 0 });
+      spend: acc.spend + s.totalSpend,
+    }), { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0, boosting: 0, spend: 0 });
     return { site, streamerData, siteTotal };
   });
 
@@ -4003,13 +4131,15 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
     reg: acc.reg + s.siteTotal.reg, dep: acc.dep + s.siteTotal.dep,
     ggr: acc.ggr + s.siteTotal.ggr, bonus: acc.bonus + s.siteTotal.bonus,
     ngr: acc.ngr + s.siteTotal.ngr, boosting: acc.boosting + s.siteTotal.boosting,
-  }), { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0, boosting: 0 });
+    spend: acc.spend + s.siteTotal.spend,
+  }), { reg: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0, boosting: 0, spend: 0 });
 
   const ColHeader = () => (
     <tr className="bg-slate-50/80 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-100">
       <th className="px-4 py-2 text-left font-semibold w-44">Campaign</th>
       <th className="px-4 py-2 text-right font-semibold">REG ▼</th>
       <th className="px-4 py-2 text-right font-semibold">Deposits</th>
+      <th className="px-4 py-2 text-right font-semibold text-red-400">Ad Spend</th>
       <th className="px-4 py-2 text-right font-semibold">GGR</th>
       <th className="px-4 py-2 text-right font-semibold">Bonus</th>
       <th className="px-4 py-2 text-right font-semibold">NGR</th>
@@ -4041,7 +4171,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
             </div>
 
             {/* Per-Streamer Cards */}
-            {streamerData.map(({ streamer, liveStats, reelsStats, liveAds, reelsAds, perf, hasLive, hasReels, hasEODOnly, totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting }) => {
+            {streamerData.map(({ streamer, liveStats, reelsStats, liveAds, reelsAds, perf, hasLive, hasReels, hasEODOnly, totalReg, totalDep, totalGGR, totalBonus, totalNGR, totalBoosting, totalSpend }) => {
               const lbl = streamer.toUpperCase();
               return (
                 <div key={streamer} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -4073,6 +4203,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                             </td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{formatNum(liveStats.reg)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{fmtVal(liveStats.dep)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-400">—</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(liveAds.ggr)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(liveAds.bonus)}</td>
                             <td className={`px-4 py-2.5 text-right font-medium ${liveAds.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(liveAds.ngr)}</td>
@@ -4088,6 +4219,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                             </td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{formatNum(reelsStats.reg)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{fmtVal(reelsStats.dep)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-400">—</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(reelsAds.ggr)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(reelsAds.bonus)}</td>
                             <td className={`px-4 py-2.5 text-right font-medium ${reelsAds.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(reelsAds.ngr)}</td>
@@ -4104,6 +4236,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                             </td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{formatNum(perf.reg)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{fmtVal(perf.dep)}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-400">—</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(perf.ggr)}</td>
                             <td className="px-4 py-2.5 text-right text-slate-500">{fmtVal(perf.bonus)}</td>
                             <td className={`px-4 py-2.5 text-right font-medium ${perf.ngr >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(perf.ngr)}</td>
@@ -4114,6 +4247,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                           <td className="px-4 py-2.5 text-xs uppercase text-slate-400 tracking-wider">Total</td>
                           <td className="px-4 py-2.5 text-right">{formatNum(totalReg)}</td>
                           <td className="px-4 py-2.5 text-right">{fmtVal(totalDep)}</td>
+                          <td className="px-4 py-2.5 text-right text-red-500">{totalSpend > 0 ? fmtVal(totalSpend) : '—'}</td>
                           <td className="px-4 py-2.5 text-right">{fmtVal(totalGGR)}</td>
                           <td className="px-4 py-2.5 text-right">{fmtVal(totalBonus)}</td>
                           <td className={`px-4 py-2.5 text-right ${totalNGR >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(totalNGR)}</td>
@@ -4135,6 +4269,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                       <th className="px-4 py-1.5 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-widest w-44"></th>
                       <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-sky-100 text-sky-600 px-1.5 py-0.5 rounded">Reg</span></th>
                       <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded">Deposits</span></th>
+                      <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Ad Spend</span></th>
                       <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">GGR</span></th>
                       <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">Bonus</span></th>
                       <th className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-widest"><span className="bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded">NGR</span></th>
@@ -4146,6 +4281,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
                       <td className={`px-4 py-3 w-44 tracking-wider font-bold ${totalRowText}`}>{label} TOTAL</td>
                       <td className={`px-4 py-3 text-right font-bold ${totalRowText}`}>{formatNum(siteTotal.reg)}</td>
                       <td className={`px-4 py-3 text-right font-bold ${totalRowText}`}>{fmtVal(siteTotal.dep)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-400">{siteTotal.spend > 0 ? fmtVal(siteTotal.spend) : '—'}</td>
                       <td className={`px-4 py-3 text-right ${totalRowMuted}`}>{fmtVal(siteTotal.ggr)}</td>
                       <td className={`px-4 py-3 text-right ${totalRowMuted}`}>{fmtVal(siteTotal.bonus)}</td>
                       <td className={`px-4 py-3 text-right font-bold ${siteTotal.ngr >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtVal(siteTotal.ngr)}</td>
@@ -4175,7 +4311,7 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
               <span className="text-white font-extrabold text-base tracking-wider">TOTAL {siteOrder.join(' & ')}</span>
             </div>
             {/* Stat cards */}
-            <div className="grid grid-cols-6 gap-3">
+            <div className="grid grid-cols-7 gap-3">
               <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
                 <span className="text-sky-300 text-[10px] font-bold uppercase tracking-widest">Reg</span>
                 <span className="text-white font-extrabold text-sm">{formatNum(grandTotal.reg)}</span>
@@ -4183,6 +4319,10 @@ function AdsReportView({ layoutMode, filteredData, adsReportData, creatorPerfDat
               <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
                 <span className="text-emerald-300 text-[10px] font-bold uppercase tracking-widest">Deposits</span>
                 <span className="text-white font-extrabold text-sm">{fmtVal(grandTotal.dep)}</span>
+              </div>
+              <div className="bg-red-500/20 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-red-400/30">
+                <span className="text-red-300 text-[10px] font-bold uppercase tracking-widest">Ad Spend</span>
+                <span className="text-red-300 font-extrabold text-sm">{fmtVal(grandTotal.spend)}</span>
               </div>
               <div className="bg-white/10 backdrop-blur rounded-xl px-4 py-3 flex flex-col gap-1 border border-white/10">
                 <span className="text-amber-300 text-[10px] font-bold uppercase tracking-widest">GGR</span>
@@ -4347,7 +4487,6 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
       reg: r => r.totalReg || 0,
       activePl: r => r.activePl || 0,
       validTurnover: r => r.validTurnover || 0,
-      adSpend: r => r.totalSpend || 0,
       totalDep: r => r.totalDep || 0,
       withdrawal: r => r.totalWithdrawal || 0,
       ggr: r => r.ggr || 0,
@@ -4526,7 +4665,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-green-900 text-white text-xs uppercase tracking-wider sticky top-0 z-10">
-                {[{col:'date',label:'Day',align:'left'},{col:'site',label:'Site',align:'left'},{col:'reg',label:'Reg',align:'right'},{col:'activePl',label:'Active PL',align:'right'},{col:'validTurnover',label:'Valid Turnover',align:'right'},{col:'adSpend',label:'Ad Spend',align:'right'},{col:'totalDep',label:'Total Deposit',align:'right'},{col:'withdrawal',label:'Withdrawal',align:'right'},{col:'ggr',label:'Win/Loss',align:'right'},{col:'bonus',label:'Bonus',align:'right'},{col:'ngr',label:'NGR',align:'right'}].map(({col,label,align})=>{
+                {[{col:'date',label:'Day',align:'left'},{col:'site',label:'Site',align:'left'},{col:'reg',label:'Reg',align:'right'},{col:'activePl',label:'Active PL',align:'right'},{col:'validTurnover',label:'Valid Turnover',align:'right'},{col:'totalDep',label:'Total Deposit',align:'right'},{col:'withdrawal',label:'Withdrawal',align:'right'},{col:'ggr',label:'Win/Loss',align:'right'},{col:'bonus',label:'Bonus',align:'right'},{col:'ngr',label:'NGR',align:'right'}].map(({col,label,align})=>{
                   const active = eodSort.col === col;
                   const isDesc = active && eodSort.dir === 'desc';
                   const isAsc  = active && eodSort.dir === 'asc';
@@ -4557,7 +4696,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
+                  <td colSpan={12} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
                     No data for <strong>{selectedStreamer}</strong> in the selected date range. Use <span className="text-amber-600 dark:text-amber-400 font-semibold">Mark No Stream</span> to record days with no activity.
                   </td>
                 </tr>
@@ -4579,7 +4718,6 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.hasData !== false ? row.totalReg : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.activePl ? row.activePl.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-slate-600 dark:text-slate-400">{row.validTurnover ? row.validTurnover.toLocaleString() : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
-                    <td className="px-2 py-2 text-right text-red-500 font-medium">{row.hasData !== false ? formatPHP(row.totalSpend) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-emerald-600 font-medium">{row.hasData !== false ? formatPHP(row.totalDep) : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className="px-2 py-2 text-right text-red-400">{row.totalWithdrawal ? `-${Math.abs(row.totalWithdrawal).toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600">—</span>}</td>
                     <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600 dark:text-slate-400' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
@@ -4629,7 +4767,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   {/* Inline entries sub-row */}
                   {expandedRow === row.date && row.hasData !== false && (
                     <tr className="bg-indigo-50/60 dark:bg-indigo-900/15">
-                      <td colSpan={13} className="px-6 py-3">
+                      <td colSpan={12} className="px-6 py-3">
                         <div className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
                         <table className="w-full text-xs">
                           <thead>
@@ -4694,7 +4832,6 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   <td className="px-2 py-2 text-right">{totals.reg}</td>
                   <td className="px-2 py-2 text-right">{totals.activePl ? totals.activePl.toLocaleString() : '—'}</td>
                   <td className="px-2 py-2 text-right">{totals.validTurnover ? totals.validTurnover.toLocaleString() : '—'}</td>
-                  <td className="px-2 py-2 text-right">{formatPHP(totals.spend)}</td>
                   <td className="px-2 py-2 text-right">{formatPHP(totals.dep)}</td>
                   <td className="px-2 py-2 text-right opacity-80">{totals.totalWithdrawal ? `-${Math.abs(totals.totalWithdrawal).toLocaleString()}` : '—'}</td>
                   <td className={`px-2 py-2 text-right ${totals.ggr >= 0 ? '' : 'text-red-300'}`}>{fmtVal(totals.ggr)}</td>
@@ -4703,7 +4840,6 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   <td className={`px-2 py-2 text-right ${totalEfficacy !== null && totalEfficacy >= 100 ? 'text-emerald-300' : totalEfficacy !== null ? 'text-amber-300' : ''}`}>
                     {totalEfficacy !== null ? `${totalEfficacy.toFixed(2)}%` : '—'}
                   </td>
-                  <td></td>
                   <td></td>
                 </tr>
               </tfoot>
