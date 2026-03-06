@@ -2461,7 +2461,7 @@ export default function App() {
       const dateMatch = (!startDate || item.date >= startDate) && (!endDate || item.date <= endDate);
       return siteMatch && streamerMatch && typeMatch && dateMatch;
     });
-  }, [filterSite, filterStreamer, filterType, startDate, endDate]);
+  }, [data, filterSite, filterStreamer, filterType, startDate, endDate]);
 
   // Total Metrics
   const totals = useMemo(() => {
