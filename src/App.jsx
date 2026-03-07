@@ -1390,22 +1390,26 @@ export default function App() {
     setStreamTally({});
     try { localStorage.removeItem('streamTally'); } catch {}
     try {
-      // Try multiple delete strategies to ensure campaigns are wiped
-      const delCampaigns = await supabase.from('campaigns').delete().gte('created_at', '2000-01-01');
+      // Use not('id','is',null) so ALL rows are matched regardless of created_at being NULL
+      const delCampaigns = await supabase.from('campaigns').delete().not('id', 'is', null);
       if (delCampaigns.error) {
-        // Fallback: try with a different filter
+        // Fallback: try with a site-based filter
         await supabase.from('campaigns').delete().neq('site', '__never__');
       }
-      await Promise.all([
-        supabase.from('ads_report').delete().gte('created_at', '2000-01-01'),
-        supabase.from('creator_perf').delete().gte('created_at', '2000-01-01'),
-        supabase.from('no_stream').delete().gte('created_at', '2000-01-01'),
-        supabase.from('uploaded_files').delete().not('file_name', 'is', null),
+      const sideDeletes = await Promise.all([
+        supabase.from('ads_report').delete().not('id', 'is', null),
+        supabase.from('creator_perf').delete().not('id', 'is', null),
+        supabase.from('no_stream').delete().not('id', 'is', null),
+        supabase.from('uploaded_files').delete().not('id', 'is', null),
       ]);
+      const sideErrors = sideDeletes.filter(r => r.error).map(r => r.error.message);
       // Verify campaigns were actually deleted
-      const { count } = await supabase.from('campaigns').select('*', { count: 'exact', head: true });
-      if (count > 0) {
-        alert(`⚠️ ${count} campaign rows could not be deleted from the database. This is likely a permissions issue.\n\nPlease run this in your Supabase SQL Editor:\n\nDELETE FROM public.campaigns;\nDELETE FROM public.ads_report;\nDELETE FROM public.creator_perf;\nDELETE FROM public.no_stream;\nDELETE FROM public.uploaded_files;\n\nLocal data has been wiped — refresh after running the SQL.`);
+      const { count, error: countErr } = await supabase.from('campaigns').select('*', { count: 'exact', head: true });
+      const remaining = countErr ? null : count;
+      if (remaining === null || remaining > 0) {
+        const detail = remaining === null ? 'Could not verify — count query failed.' : `${remaining} row(s) remain.`;
+        const sideDetail = sideErrors.length ? `\n\nSide-table errors:\n${sideErrors.join('\n')}` : '';
+        alert(`⚠️ Database clear may have failed. ${detail}${sideDetail}\n\nThis is likely a Supabase RLS (Row Level Security) permissions issue.\n\nTo fix, run this in your Supabase SQL Editor:\n\nDELETE FROM public.campaigns;\nDELETE FROM public.ads_report;\nDELETE FROM public.creator_perf;\nDELETE FROM public.no_stream;\nDELETE FROM public.uploaded_files;\n\nLocal data has been wiped — refresh after running the SQL.`);
       }
     } catch (e) {
       alert(`⚠️ Error clearing database: ${e.message}\n\nLocal data has been wiped.`);
