@@ -1,4 +1,4 @@
-const fs = require('fs');
+  const fs = require('fs');
 const text = fs.readFileSync('j:/For Work/campaign_tracker/MEDIA BUYER & TALENTS _ TRACKER - ROLLEM.csv', 'utf8');
 
 function parseCsvLine(line, delim) {
