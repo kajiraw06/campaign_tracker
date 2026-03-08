@@ -4718,7 +4718,10 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                 <React.Fragment key={idx}>
                   <>
                   {/* ── Unified row — red VideoOff icon before date when no-stream ── */}
-                  <tr className={`hover:bg-green-50/40 dark:hover:bg-green-900/20 transition-colors ${idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-800/20'}`}>
+                  <tr
+                    className={`transition-colors ${row.noStream ? 'hover:brightness-110' : 'hover:bg-green-50/40 dark:hover:bg-green-900/20'} ${row.noStream ? '' : (idx % 2 === 0 ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-800/20')}`}
+                    style={row.noStream ? { background: 'linear-gradient(90deg, rgba(239,68,68,0.55) 0px, rgba(239,68,68,0.18) 6px, rgba(239,68,68,0.08) 100%)' } : {}}
+                  >
                     <td className="px-2 py-2 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         {row.noStream && <VideoOff size={13} className="text-red-500 shrink-0" title="No Stream"/>}
