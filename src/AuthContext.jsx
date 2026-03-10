@@ -7,8 +7,13 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
   const [role, setRole]       = useState(null); // 'admin' | 'viewer'
   const [loading, setLoading] = useState(true);
+  const [killSwitch, setKillSwitch] = useState(false);
 
   useEffect(() => {
+    // Fetch kill switch status from Supabase config table
+    supabase.from('config').select('value').eq('key', 'kill_switch').single()
+      .then(({ data }) => { if (data?.value === 'true') setKillSwitch(true); });
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -36,7 +41,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, role, loading, killSwitch, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

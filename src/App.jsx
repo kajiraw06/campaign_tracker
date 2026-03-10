@@ -63,604 +63,6 @@ function chunkArray(arr, size = 400) {
   return chunks;
 }
 
-// --- DEFAULT CREATOR PERF DATA (from Google Sheets) ---
-// Keys: "YYYY-MM-DD|streamer|site"  Values: { ggr, bonus, ngr }
-const defaultCreatorPerfData = {
-  // HolyFather / WFL
-  '2026-02-02|HolyFather|WFL': { ggr: 5115, bonus: 7303, ngr: 12418 },
-  '2026-02-03|HolyFather|WFL': { ggr: -92914, bonus: 6322, ngr: -86592 },
-  '2026-02-04|HolyFather|WFL': { ggr: -13471, bonus: 3629, ngr: -9843 },
-  '2026-02-05|HolyFather|WFL': { ggr: -49516, bonus: 3894, ngr: -45622 },
-  '2026-02-06|HolyFather|WFL': { ggr: 28773, bonus: 1171, ngr: 29944 },
-  '2026-02-07|HolyFather|WFL': { ggr: -62831, bonus: 835, ngr: -61996 },
-  '2026-02-08|HolyFather|WFL': { ggr: 72038, bonus: 745, ngr: 72783 },
-  '2026-02-09|HolyFather|WFL': { ggr: -335363, bonus: 295, ngr: -335068 },
-  '2026-02-10|HolyFather|WFL': { ggr: -119742, bonus: 290, ngr: -119452 },
-  '2026-02-11|HolyFather|WFL': { ggr: -61818, bonus: 411, ngr: -61407 },
-  '2026-02-12|HolyFather|WFL': { ggr: -25233, bonus: 200, ngr: -25033 },
-  '2026-02-13|HolyFather|WFL': { ggr: 141598, bonus: 435, ngr: 142033 },
-  '2026-02-14|HolyFather|WFL': { ggr: -23317, bonus: 254, ngr: -23063 },
-  '2026-02-15|HolyFather|WFL': { ggr: -19952, bonus: 455, ngr: -19497 },
-  '2026-02-16|HolyFather|WFL': { ggr: -48179, bonus: 80, ngr: -48099 },
-  '2026-02-17|HolyFather|WFL': { ggr: -11299, bonus: 8342, ngr: -2957 },
-  '2026-02-18|HolyFather|WFL': { ggr: -64833, bonus: 882, ngr: -63950 },
-  '2026-02-19|HolyFather|WFL': { ggr: -78738, bonus: 745, ngr: -77993 },
-  '2026-02-20|HolyFather|WFL': { ggr: 31539, bonus: 440, ngr: 31979 },
-  '2026-02-21|HolyFather|WFL': { ggr: -5494, bonus: 431, ngr: -5063 },
-  '2026-02-22|HolyFather|WFL': { ggr: -24460, bonus: 5532, ngr: -18928 },
-  '2026-02-23|HolyFather|WFL': { ggr: -61164, bonus: 282, ngr: -60882 },
-  '2026-02-24|HolyFather|WFL': { ggr: -88487, bonus: 8364, ngr: -80123 },
-  '2026-02-25|HolyFather|WFL': { ggr: -2470, bonus: 284, ngr: -2186 },
-  // ATO (CLASSS) / WFL
-  '2026-02-02|ATO|WFL': { ggr: -44071, bonus: 1997, ngr: -42074 },
-  '2026-02-03|ATO|WFL': { ggr: -10366, bonus: 929, ngr: -9438 },
-  '2026-02-04|ATO|WFL': { ggr: -7912, bonus: 1339, ngr: -6573 },
-  '2026-02-05|ATO|WFL': { ggr: -23319, bonus: 1532, ngr: -21787 },
-  '2026-02-06|ATO|WFL': { ggr: -53890, bonus: 590, ngr: -53300 },
-  '2026-02-07|ATO|WFL': { ggr: -40141, bonus: 691, ngr: -39450 },
-  '2026-02-08|ATO|WFL': { ggr: -7784, bonus: 615, ngr: -7169 },
-  '2026-02-09|ATO|WFL': { ggr: 1894, bonus: 135, ngr: 2029 },
-  '2026-02-10|ATO|WFL': { ggr: 2224, bonus: 40, ngr: 2264 },
-  '2026-02-11|ATO|WFL': { ggr: -11558, bonus: 237, ngr: -11321 },
-  '2026-02-12|ATO|WFL': { ggr: 505, bonus: 155, ngr: 659 },
-  '2026-02-13|ATO|WFL': { ggr: -3368, bonus: 60, ngr: -3308 },
-  '2026-02-14|ATO|WFL': { ggr: -9809, bonus: 47, ngr: -9762 },
-  '2026-02-15|ATO|WFL': { ggr: -56549, bonus: 925, ngr: -55624 },
-  '2026-02-16|ATO|WFL': { ggr: -10995, bonus: 460, ngr: -10535 },
-  '2026-02-17|ATO|WFL': { ggr: -14491, bonus: 997, ngr: -13494 },
-  '2026-02-18|ATO|WFL': { ggr: -10660, bonus: 649, ngr: -10011 },
-  '2026-02-19|ATO|WFL': { ggr: -4355, bonus: 30, ngr: -4325 },
-  '2026-02-20|ATO|WFL': { ggr: -66615, bonus: 410, ngr: -66205 },
-  '2026-02-21|ATO|WFL': { ggr: -2567, bonus: 60, ngr: -2507 },
-  '2026-02-22|ATO|WFL': { ggr: -7806, bonus: 30, ngr: -7776 },
-  '2026-02-23|ATO|WFL': { ggr: -10122, bonus: 0, ngr: -10122 },
-  '2026-02-24|ATO|WFL': { ggr: 6733, bonus: 180, ngr: 6913 },
-  // Sainty / RLM
-  '2026-02-02|Sainty|RLM': { ggr: -28426, bonus: 15946, ngr: -12480 },
-  '2026-02-03|Sainty|RLM': { ggr: 27353, bonus: 10698, ngr: 38051 },
-  '2026-02-04|Sainty|RLM': { ggr: -41696, bonus: 8543, ngr: -33153 },
-  '2026-02-05|Sainty|RLM': { ggr: -48734, bonus: 5531, ngr: -43203 },
-  '2026-02-06|Sainty|RLM': { ggr: -97207, bonus: 1509, ngr: -95699 },
-  '2026-02-07|Sainty|RLM': { ggr: -23565, bonus: 791, ngr: -22774 },
-  '2026-02-08|Sainty|RLM': { ggr: -113788, bonus: 744, ngr: -113044 },
-  '2026-02-09|Sainty|RLM': { ggr: -59118, bonus: 3512, ngr: -55605 },
-  '2026-02-10|Sainty|RLM': { ggr: 19505, bonus: 8196, ngr: 27701 },
-  '2026-02-11|Sainty|RLM': { ggr: -31155, bonus: 1211, ngr: -29944 },
-  '2026-02-12|Sainty|RLM': { ggr: -13359, bonus: 4660, ngr: -8699 },
-  '2026-02-13|Sainty|RLM': { ggr: -34728, bonus: 1332, ngr: -33396 },
-  '2026-02-14|Sainty|RLM': { ggr: -29052, bonus: 1901, ngr: -27151 },
-  '2026-02-15|Sainty|RLM': { ggr: -9384, bonus: 5369, ngr: -4015 },
-  '2026-02-16|Sainty|RLM': { ggr: -23571, bonus: 3031, ngr: -20540 },
-  '2026-02-17|Sainty|RLM': { ggr: 49317, bonus: 4836, ngr: 54153 },
-  '2026-02-18|Sainty|RLM': { ggr: -57391, bonus: 378, ngr: -57013 },
-  '2026-02-19|Sainty|RLM': { ggr: -49610, bonus: 867, ngr: -48744 },
-  '2026-02-20|Sainty|RLM': { ggr: 42494, bonus: 4458, ngr: 46952 },
-  '2026-02-21|Sainty|RLM': { ggr: -30632, bonus: 2424, ngr: -28208 },
-  '2026-02-22|Sainty|RLM': { ggr: -43124, bonus: 476, ngr: -42647 },
-  '2026-02-23|Sainty|RLM': { ggr: 13123, bonus: 1559, ngr: 14682 },
-  '2026-02-24|Sainty|RLM': { ggr: -109637, bonus: 1405, ngr: -108233 },
-  // Yuji / RLM
-  '2026-02-02|Yuji|RLM': { ggr: -30600, bonus: 9997, ngr: -20603 },
-  '2026-02-03|Yuji|RLM': { ggr: -29808, bonus: 6357, ngr: -23450 },
-  '2026-02-04|Yuji|RLM': { ggr: -24242, bonus: 2487, ngr: -21755 },
-  '2026-02-05|Yuji|RLM': { ggr: 23460, bonus: 3364, ngr: 26824 },
-  '2026-02-06|Yuji|RLM': { ggr: -48380, bonus: 396, ngr: -47984 },
-  '2026-02-07|Yuji|RLM': { ggr: -13187, bonus: 478, ngr: -12709 },
-  '2026-02-08|Yuji|RLM': { ggr: 15262, bonus: 223, ngr: 15485 },
-  '2026-02-09|Yuji|RLM': { ggr: -8915, bonus: 715, ngr: -8201 },
-  '2026-02-10|Yuji|RLM': { ggr: -5580, bonus: 888, ngr: -4692 },
-  '2026-02-11|Yuji|RLM': { ggr: -80179, bonus: 4911, ngr: -75268 },
-  '2026-02-12|Yuji|RLM': { ggr: -6477, bonus: 240, ngr: -6238 },
-  '2026-02-13|Yuji|RLM': { ggr: -27953, bonus: 415, ngr: -27538 },
-  '2026-02-14|Yuji|RLM': { ggr: -38209, bonus: 351, ngr: -37858 },
-  '2026-02-15|Yuji|RLM': { ggr: 44143, bonus: 3010, ngr: 47153 },
-  '2026-02-16|Yuji|RLM': { ggr: -83800, bonus: 5952, ngr: -77847 },
-  '2026-02-17|Yuji|RLM': { ggr: -18650, bonus: 761, ngr: -17890 },
-  '2026-02-18|Yuji|RLM': { ggr: 3348, bonus: 186, ngr: 3534 },
-  '2026-02-19|Yuji|RLM': { ggr: -56875, bonus: 232, ngr: -56643 },
-  '2026-02-20|Yuji|RLM': { ggr: -12681, bonus: 200, ngr: -12480 },
-  '2026-02-21|Yuji|RLM': { ggr: -8840, bonus: 172, ngr: -8668 },
-  '2026-02-22|Yuji|RLM': { ggr: -2885, bonus: 183, ngr: -2701 },
-  '2026-02-23|Yuji|RLM': { ggr: 8817, bonus: 1316, ngr: 10133 },
-  '2026-02-24|Yuji|RLM': { ggr: 14564, bonus: 14564, ngr: 29128 },
-  // Kim / RLM
-  '2026-02-02|Kim|RLM': { ggr: -11042, bonus: 2341, ngr: -8701 },
-  '2026-02-03|Kim|RLM': { ggr: -10409, bonus: 3243, ngr: -7166 },
-  '2026-02-04|Kim|RLM': { ggr: -40473, bonus: 2127, ngr: -38345 },
-  '2026-02-05|Kim|RLM': { ggr: 468, bonus: 1236, ngr: 1704 },
-  '2026-02-06|Kim|RLM': { ggr: -19338, bonus: 708, ngr: -18630 },
-  '2026-02-07|Kim|RLM': { ggr: -2701, bonus: 1106, ngr: -1595 },
-  '2026-02-08|Kim|RLM': { ggr: -9139, bonus: 664, ngr: -8475 },
-  '2026-02-09|Kim|RLM': { ggr: -16131, bonus: 1012, ngr: -15119 },
-  '2026-02-10|Kim|RLM': { ggr: -10988, bonus: 161, ngr: -10827 },
-  '2026-02-11|Kim|RLM': { ggr: -14709, bonus: 140, ngr: -14569 },
-  '2026-02-12|Kim|RLM': { ggr: -3902, bonus: 70, ngr: -3832 },
-  '2026-02-13|Kim|RLM': { ggr: 256, bonus: 0, ngr: 256 },
-  '2026-02-14|Kim|RLM': { ggr: -11454, bonus: 210, ngr: -11244 },
-  '2026-02-15|Kim|RLM': { ggr: -241, bonus: 20, ngr: -221 },
-  '2026-02-16|Kim|RLM': { ggr: -6110, bonus: 447, ngr: -5663 },
-  '2026-02-17|Kim|RLM': { ggr: -8584, bonus: 70, ngr: -8514 },
-  '2026-02-18|Kim|RLM': { ggr: -1842, bonus: 164, ngr: -1678 },
-  '2026-02-19|Kim|RLM': { ggr: -3958, bonus: 80, ngr: -3878 },
-  '2026-02-20|Kim|RLM': { ggr: -99, bonus: 592, ngr: 493 },
-  '2026-02-21|Kim|RLM': { ggr: 20879, bonus: 666, ngr: 21545 },
-  '2026-02-22|Kim|RLM': { ggr: 6219, bonus: 195, ngr: 6414 },
-  '2026-02-23|Kim|RLM': { ggr: -13776, bonus: 963, ngr: -12812 },
-  '2026-02-24|Kim|RLM': { ggr: -14347, bonus: 60, ngr: -14287 },
-  // AJ / RLM
-  '2026-02-02|AJ|RLM': { ggr: -56550, bonus: 50784, ngr: -5766 },
-  '2026-02-03|AJ|RLM': { ggr: -88574, bonus: 18090, ngr: -70484 },
-  '2026-02-04|AJ|RLM': { ggr: -106473, bonus: 12547, ngr: -93926 },
-  '2026-02-05|AJ|RLM': { ggr: 16071, bonus: 22119, ngr: 38190 },
-  '2026-02-06|AJ|RLM': { ggr: -57240, bonus: 2657, ngr: -54583 },
-  '2026-02-07|AJ|RLM': { ggr: -16504, bonus: 3361, ngr: -13143 },
-  '2026-02-08|AJ|RLM': { ggr: -151751, bonus: 1819, ngr: -149932 },
-  '2026-02-09|AJ|RLM': { ggr: -61240, bonus: 6954, ngr: -54286 },
-  '2026-02-10|AJ|RLM': { ggr: -29904, bonus: 7302, ngr: -22601 },
-  '2026-02-11|AJ|RLM': { ggr: -48841, bonus: 1628, ngr: -47213 },
-  '2026-02-12|AJ|RLM': { ggr: -52460, bonus: 5190, ngr: -47270 },
-  '2026-02-13|AJ|RLM': { ggr: -28860, bonus: 2170, ngr: -26690 },
-  '2026-02-14|AJ|RLM': { ggr: 9535, bonus: 2092, ngr: 11627 },
-  '2026-02-15|AJ|RLM': { ggr: -23421, bonus: 2398, ngr: -21023 },
-  '2026-02-16|AJ|RLM': { ggr: -98335, bonus: 4885, ngr: -93450 },
-  '2026-02-17|AJ|RLM': { ggr: -58809, bonus: 1752, ngr: -57057 },
-  '2026-02-18|AJ|RLM': { ggr: -21431, bonus: 4511, ngr: -16920 },
-  '2026-02-19|AJ|RLM': { ggr: -36871, bonus: 686, ngr: -36185 },
-  '2026-02-20|AJ|RLM': { ggr: -17065, bonus: 1888, ngr: -15177 },
-  '2026-02-21|AJ|RLM': { ggr: -116322, bonus: 3881, ngr: -112441 },
-  '2026-02-22|AJ|RLM': { ggr: 4222, bonus: 1088, ngr: 5310 },
-  '2026-02-23|AJ|RLM': { ggr: -22710, bonus: 4602, ngr: -18108 },
-  '2026-02-24|AJ|RLM': { ggr: 296802, bonus: 1867, ngr: 298669 },
-  // Pepper / RLM
-  '2026-02-02|Pepper|RLM': { ggr: 466, bonus: 4309, ngr: 4775 },
-  '2026-02-03|Pepper|RLM': { ggr: -17306, bonus: 7827, ngr: -9479 },
-  '2026-02-04|Pepper|RLM': { ggr: -38568, bonus: 5180, ngr: -33388 },
-  '2026-02-05|Pepper|RLM': { ggr: -63560, bonus: 1498, ngr: -62061 },
-  '2026-02-06|Pepper|RLM': { ggr: -727, bonus: 2176, ngr: 1449 },
-  '2026-02-07|Pepper|RLM': { ggr: 962, bonus: 152, ngr: 1114 },
-  '2026-02-08|Pepper|RLM': { ggr: -6597, bonus: 100, ngr: -6497 },
-  '2026-02-09|Pepper|RLM': { ggr: -52894, bonus: 3517, ngr: -49376 },
-  '2026-02-10|Pepper|RLM': { ggr: -28488, bonus: 100, ngr: -28388 },
-  '2026-02-11|Pepper|RLM': { ggr: -28219, bonus: 1425, ngr: -26794 },
-  '2026-02-12|Pepper|RLM': { ggr: -27544, bonus: 962, ngr: -26582 },
-  '2026-02-13|Pepper|RLM': { ggr: -27137, bonus: 401, ngr: -26736 },
-  '2026-02-14|Pepper|RLM': { ggr: -7176, bonus: 469, ngr: -6708 },
-  '2026-02-15|Pepper|RLM': { ggr: -6993, bonus: 350, ngr: -6643 },
-  '2026-02-16|Pepper|RLM': { ggr: 18310, bonus: 1394, ngr: 19704 },
-  '2026-02-17|Pepper|RLM': { ggr: -68818, bonus: 1102, ngr: -67715 },
-  '2026-02-18|Pepper|RLM': { ggr: -1888, bonus: 873, ngr: -1015 },
-  '2026-02-19|Pepper|RLM': { ggr: -5425, bonus: 820, ngr: -4605 },
-  '2026-02-20|Pepper|RLM': { ggr: 11316, bonus: 156, ngr: 11472 },
-  '2026-02-21|Pepper|RLM': { ggr: 24048, bonus: 4032, ngr: 28080 },
-  '2026-02-22|Pepper|RLM': { ggr: -18239, bonus: 259, ngr: -17980 },
-  '2026-02-23|Pepper|RLM': { ggr: -14241, bonus: 603, ngr: -13639 },
-  '2026-02-24|Pepper|RLM': { ggr: -8505, bonus: 1133, ngr: -7372 },
-  // Jape / RLM
-  '2026-02-02|Jape|RLM': { ggr: -30503, bonus: 1447, ngr: -29056 },
-  '2026-02-03|Jape|RLM': { ggr: -17095, bonus: 1211, ngr: -15884 },
-  '2026-02-04|Jape|RLM': { ggr: -9535, bonus: 832, ngr: -8703 },
-  '2026-02-05|Jape|RLM': { ggr: -17046, bonus: 501, ngr: -16546 },
-  '2026-02-06|Jape|RLM': { ggr: 2677, bonus: 637, ngr: 3314 },
-  '2026-02-07|Jape|RLM': { ggr: -1125, bonus: 250, ngr: -875 },
-  '2026-02-08|Jape|RLM': { ggr: -16493, bonus: 180, ngr: -16313 },
-  '2026-02-09|Jape|RLM': { ggr: -21987, bonus: 1935, ngr: -20052 },
-  '2026-02-10|Jape|RLM': { ggr: -6538, bonus: 673, ngr: -5865 },
-  '2026-02-11|Jape|RLM': { ggr: -17792, bonus: 263, ngr: -17529 },
-  '2026-02-12|Jape|RLM': { ggr: 58320, bonus: 20, ngr: 58340 },
-  '2026-02-13|Jape|RLM': { ggr: 18974, bonus: 73, ngr: 19047 },
-  '2026-02-14|Jape|RLM': { ggr: -24497, bonus: 546, ngr: -23951 },
-  '2026-02-15|Jape|RLM': { ggr: -30518, bonus: 175, ngr: -30343 },
-  '2026-02-16|Jape|RLM': { ggr: -3344, bonus: 444, ngr: -2899 },
-  '2026-02-17|Jape|RLM': { ggr: -10834, bonus: 509, ngr: -10325 },
-  '2026-02-18|Jape|RLM': { ggr: -39921, bonus: 7224, ngr: -32696 },
-  '2026-02-19|Jape|RLM': { ggr: -24472, bonus: 0, ngr: -24472 },
-  '2026-02-20|Jape|RLM': { ggr: -11133, bonus: 10, ngr: -11123 },
-  '2026-02-21|Jape|RLM': { ggr: -31102, bonus: 30, ngr: -31072 },
-  '2026-02-22|Jape|RLM': { ggr: -16339, bonus: 10, ngr: -16329 },
-  '2026-02-23|Jape|RLM': { ggr: 167383, bonus: 10, ngr: 167393 },
-  '2026-02-24|Jape|RLM': { ggr: -50460, bonus: 3598, ngr: -46862 },
-  // Chad / RLM
-  '2026-02-02|Chad|RLM': { ggr: 58190, bonus: 6383, ngr: 64573 },
-  '2026-02-03|Chad|RLM': { ggr: -177104, bonus: 2396, ngr: -174708 },
-  '2026-02-04|Chad|RLM': { ggr: 57777, bonus: 3130, ngr: 60907 },
-  '2026-02-05|Chad|RLM': { ggr: -142046, bonus: 426, ngr: -141620 },
-  '2026-02-06|Chad|RLM': { ggr: 33281, bonus: 292, ngr: 33573 },
-  '2026-02-07|Chad|RLM': { ggr: -111595, bonus: 10, ngr: -111585 },
-  '2026-02-08|Chad|RLM': { ggr: -78010, bonus: 60, ngr: -77950 },
-  '2026-02-09|Chad|RLM': { ggr: -25748, bonus: 2242, ngr: -23505 },
-  '2026-02-10|Chad|RLM': { ggr: -61834, bonus: 250, ngr: -61584 },
-  '2026-02-11|Chad|RLM': { ggr: -103576, bonus: 86, ngr: -103490 },
-  '2026-02-12|Chad|RLM': { ggr: 13099, bonus: 140, ngr: 13239 },
-  '2026-02-13|Chad|RLM': { ggr: -38490, bonus: 0, ngr: -38490 },
-  '2026-02-14|Chad|RLM': { ggr: -15942, bonus: 0, ngr: -15942 },
-  '2026-02-15|Chad|RLM': { ggr: 14, bonus: 0, ngr: 14 },
-  '2026-02-16|Chad|RLM': { ggr: -7191, bonus: 1010, ngr: -6181 },
-  '2026-02-17|Chad|RLM': { ggr: 10971, bonus: 240, ngr: 11211 },
-  '2026-02-18|Chad|RLM': { ggr: -6556, bonus: 0, ngr: -6556 },
-  '2026-02-19|Chad|RLM': { ggr: 11896, bonus: 106, ngr: 12002 },
-  '2026-02-20|Chad|RLM': { ggr: -11407, bonus: 0, ngr: -11407 },
-  '2026-02-21|Chad|RLM': { ggr: -2731, bonus: 0, ngr: -2731 },
-  '2026-02-22|Chad|RLM': { ggr: -4772, bonus: 56, ngr: -4716 },
-  '2026-02-23|Chad|RLM': { ggr: -14877, bonus: 1740, ngr: -13137 },
-  '2026-02-24|Chad|RLM': { ggr: -3417, bonus: 150, ngr: -3267 },
-  // ChadKinis / RLM
-  '2026-02-02|ChadKinis|RLM': { ggr: 105856, bonus: 57281, ngr: 163137 },
-  '2026-02-03|ChadKinis|RLM': { ggr: -410028, bonus: 26329, ngr: -383700 },
-  '2026-02-04|ChadKinis|RLM': { ggr: -196045, bonus: 34311, ngr: -161734 },
-  '2026-02-05|ChadKinis|RLM': { ggr: -283930, bonus: 12680, ngr: -271250 },
-  '2026-02-06|ChadKinis|RLM': { ggr: -53989, bonus: 13090, ngr: -40899 },
-  '2026-02-07|ChadKinis|RLM': { ggr: -246290, bonus: 13129, ngr: -233162 },
-  '2026-02-08|ChadKinis|RLM': { ggr: -68562, bonus: 12013, ngr: -56549 },
-  '2026-02-09|ChadKinis|RLM': { ggr: -117303, bonus: 19344, ngr: -97960 },
-  '2026-02-10|ChadKinis|RLM': { ggr: 14357, bonus: 26388, ngr: 40745 },
-  '2026-02-11|ChadKinis|RLM': { ggr: -125739, bonus: 5339, ngr: -120400 },
-  '2026-02-12|ChadKinis|RLM': { ggr: -73058, bonus: 3219, ngr: -69840 },
-  '2026-02-13|ChadKinis|RLM': { ggr: -171458, bonus: 8864, ngr: -162594 },
-  '2026-02-14|ChadKinis|RLM': { ggr: -183656, bonus: 6578, ngr: -177078 },
-  '2026-02-15|ChadKinis|RLM': { ggr: -108220, bonus: 6195, ngr: -102025 },
-  '2026-02-16|ChadKinis|RLM': { ggr: -52181, bonus: 36899, ngr: -15282 },
-  '2026-02-17|ChadKinis|RLM': { ggr: -85674, bonus: 6447, ngr: -79227 },
-  '2026-02-18|ChadKinis|RLM': { ggr: -68649, bonus: 9366, ngr: -59282 },
-  '2026-02-19|ChadKinis|RLM': { ggr: -137139, bonus: 6380, ngr: -130760 },
-  '2026-02-20|ChadKinis|RLM': { ggr: -218628, bonus: 5978, ngr: -212650 },
-  '2026-02-21|ChadKinis|RLM': { ggr: -98431, bonus: 3048, ngr: -95383 },
-  '2026-02-22|ChadKinis|RLM': { ggr: 639077, bonus: 11047, ngr: 650124 },
-  '2026-02-23|ChadKinis|RLM': { ggr: -132624, bonus: 36290, ngr: -96334 },
-  '2026-02-24|ChadKinis|RLM': { ggr: -210521, bonus: 16889, ngr: -193632 },
-  '2026-02-25|ChadKinis|RLM': { ggr: -35171, bonus: 7671, ngr: -27500 },
-  // Affiliate / RLM
-  '2026-02-02|Affiliate|RLM': { ggr: 4768, bonus: 140, ngr: 4908 },
-  '2026-02-03|Affiliate|RLM': { ggr: -2831, bonus: 0, ngr: -2831 },
-  '2026-02-04|Affiliate|RLM': { ggr: -2872, bonus: 40, ngr: -2832 },
-  '2026-02-05|Affiliate|RLM': { ggr: -1223, bonus: 30, ngr: -1193 },
-  '2026-02-06|Affiliate|RLM': { ggr: -785, bonus: 42, ngr: -743 },
-  '2026-02-07|Affiliate|RLM': { ggr: -101205, bonus: 0, ngr: -101205 },
-  '2026-02-08|Affiliate|RLM': { ggr: -4343, bonus: 300, ngr: -4043 },
-  '2026-02-09|Affiliate|RLM': { ggr: -2962, bonus: 80, ngr: -2882 },
-  '2026-02-10|Affiliate|RLM': { ggr: -144, bonus: 0, ngr: -144 },
-  '2026-02-11|Affiliate|RLM': { ggr: -212, bonus: 20, ngr: -192 },
-  '2026-02-12|Affiliate|RLM': { ggr: -1065, bonus: 116, ngr: -949 },
-  '2026-02-13|Affiliate|RLM': { ggr: -258, bonus: 0, ngr: -258 },
-  '2026-02-14|Affiliate|RLM': { ggr: -2287, bonus: 0, ngr: -2287 },
-  '2026-02-15|Affiliate|RLM': { ggr: -2553, bonus: 58, ngr: -2495 },
-  '2026-02-16|Affiliate|RLM': { ggr: 385, bonus: 20, ngr: 405 },
-  '2026-02-17|Affiliate|RLM': { ggr: -749, bonus: 86, ngr: -663 },
-  '2026-02-18|Affiliate|RLM': { ggr: -422, bonus: 0, ngr: -422 },
-  '2026-02-19|Affiliate|RLM': { ggr: -99710, bonus: 10, ngr: -99700 },
-  '2026-02-20|Affiliate|RLM': { ggr: 1020, bonus: 10, ngr: 1030 },
-  '2026-02-21|Affiliate|RLM': { ggr: -5586, bonus: 41, ngr: -5545 },
-  '2026-02-22|Affiliate|RLM': { ggr: -1681, bonus: 30, ngr: -1651 },
-  '2026-02-23|Affiliate|RLM': { ggr: -103834, bonus: 110, ngr: -103724 },
-  '2026-02-02|Wrecker|WFL': { ggr: 44262, bonus: 1357, ngr: 45619 },
-  '2026-02-03|Wrecker|WFL': { ggr: 7623, bonus: 5591, ngr: 13214 },
-  '2026-02-04|Wrecker|WFL': { ggr: -80152, bonus: 2314, ngr: -77838 },
-  '2026-02-05|Wrecker|WFL': { ggr: 917, bonus: 1795, ngr: 2712 },
-  '2026-02-06|Wrecker|WFL': { ggr: 55016, bonus: 409, ngr: 55425 },
-  '2026-02-07|Wrecker|WFL': { ggr: -69263, bonus: 490, ngr: -68773 },
-  '2026-02-08|Wrecker|WFL': { ggr: 17700, bonus: 990, ngr: 18690 },
-  '2026-02-09|Wrecker|WFL': { ggr: -57939, bonus: 825, ngr: -57114 },
-  '2026-02-10|Wrecker|WFL': { ggr: -23465, bonus: 200, ngr: -23265 },
-  '2026-02-11|Wrecker|WFL': { ggr: 130314, bonus: 45, ngr: 130359 },
-  '2026-02-12|Wrecker|WFL': { ggr: -267304, bonus: 50, ngr: -267254 },
-  '2026-02-13|Wrecker|WFL': { ggr: -34239, bonus: 105, ngr: -34134 },
-  '2026-02-14|Wrecker|WFL': { ggr: -59757, bonus: 261, ngr: -59496 },
-  '2026-02-15|Wrecker|WFL': { ggr: -42177, bonus: 370, ngr: -41807 },
-  '2026-02-16|Wrecker|WFL': { ggr: 476, bonus: 690, ngr: 1166 },
-  '2026-02-17|Wrecker|WFL': { ggr: 42934, bonus: 1151, ngr: 44085 },
-  '2026-02-18|Wrecker|WFL': { ggr: 17447, bonus: 1090, ngr: 18537 },
-  '2026-02-19|Wrecker|WFL': { ggr: -86806, bonus: 357, ngr: -86449 },
-  '2026-02-20|Wrecker|WFL': { ggr: 18209, bonus: 160, ngr: 18369 },
-  '2026-02-21|Wrecker|WFL': { ggr: -48898, bonus: 367, ngr: -48531 },
-  '2026-02-22|Wrecker|WFL': { ggr: -47018, bonus: 705, ngr: -46313 },
-  '2026-02-23|Wrecker|WFL': { ggr: -14287, bonus: 484, ngr: -13803 },
-  '2026-02-24|Wrecker|WFL': { ggr: 2276, bonus: 305, ngr: 2581 },
-  // Jason (JASOON) / WFL
-  '2026-02-02|Jason|WFL': { ggr: 28187, bonus: 1295, ngr: 29483 },
-  '2026-02-03|Jason|WFL': { ggr: -21140, bonus: 3010, ngr: -18130 },
-  '2026-02-04|Jason|WFL': { ggr: -21865, bonus: 873, ngr: -20992 },
-  '2026-02-05|Jason|WFL': { ggr: 9850, bonus: 1010, ngr: 10860 },
-  '2026-02-06|Jason|WFL': { ggr: -7625, bonus: 210, ngr: -7415 },
-  '2026-02-07|Jason|WFL': { ggr: 10782, bonus: 221, ngr: 11003 },
-  '2026-02-08|Jason|WFL': { ggr: -48176, bonus: 90, ngr: -48086 },
-  '2026-02-09|Jason|WFL': { ggr: -68872, bonus: 30, ngr: -68842 },
-  '2026-02-10|Jason|WFL': { ggr: -31619, bonus: 85, ngr: -31534 },
-  '2026-02-11|Jason|WFL': { ggr: 5975, bonus: 60, ngr: 6035 },
-  '2026-02-12|Jason|WFL': { ggr: 2664, bonus: 0, ngr: 2664 },
-  '2026-02-13|Jason|WFL': { ggr: -15945, bonus: 80, ngr: -15865 },
-  '2026-02-14|Jason|WFL': { ggr: -18002, bonus: 107, ngr: -17895 },
-  '2026-02-15|Jason|WFL': { ggr: 8030, bonus: 0, ngr: 8030 },
-  '2026-02-16|Jason|WFL': { ggr: 11863, bonus: 10, ngr: 11873 },
-  '2026-02-17|Jason|WFL': { ggr: -2912, bonus: 160, ngr: -2752 },
-  '2026-02-18|Jason|WFL': { ggr: -2362, bonus: 130, ngr: -2232 },
-  '2026-02-19|Jason|WFL': { ggr: 32776, bonus: 50, ngr: 32826 },
-  '2026-02-20|Jason|WFL': { ggr: 1910, bonus: 420, ngr: 2330 },
-  '2026-02-21|Jason|WFL': { ggr: -4480, bonus: 80, ngr: -4400 },
-  '2026-02-22|Jason|WFL': { ggr: -45388, bonus: 90, ngr: -45298 },
-  '2026-02-23|Jason|WFL': { ggr: 15753, bonus: 116, ngr: 15869 },
-  '2026-02-24|Jason|WFL': { ggr: -23419, bonus: 150, ngr: -23269 },
-  // Neggy (NEGGYTV) / WFL
-  '2026-02-02|Neggy|WFL': { ggr: -12516, bonus: 2683, ngr: -9833 },
-  '2026-02-03|Neggy|WFL': { ggr: -11444, bonus: 1034, ngr: -10410 },
-  '2026-02-04|Neggy|WFL': { ggr: -2349, bonus: 441, ngr: -1908 },
-  '2026-02-05|Neggy|WFL': { ggr: -5817, bonus: 2270, ngr: -3547 },
-  '2026-02-06|Neggy|WFL': { ggr: -4236, bonus: 120, ngr: -4116 },
-  '2026-02-07|Neggy|WFL': { ggr: -5157, bonus: 120, ngr: -5037 },
-  '2026-02-08|Neggy|WFL': { ggr: -2764, bonus: 45, ngr: -2719 },
-  '2026-02-09|Neggy|WFL': { ggr: -11614, bonus: 30, ngr: -11584 },
-  '2026-02-10|Neggy|WFL': { ggr: -2766, bonus: 60, ngr: -2706 },
-  '2026-02-11|Neggy|WFL': { ggr: -5338, bonus: 30, ngr: -5308 },
-  '2026-02-12|Neggy|WFL': { ggr: 558, bonus: 0, ngr: 558 },
-  '2026-02-13|Neggy|WFL': { ggr: -3735, bonus: 150, ngr: -3585 },
-  '2026-02-14|Neggy|WFL': { ggr: -6422, bonus: 0, ngr: -6422 },
-  '2026-02-15|Neggy|WFL': { ggr: -3835, bonus: 0, ngr: -3835 },
-  '2026-02-16|Neggy|WFL': { ggr: -7736, bonus: 0, ngr: -7736 },
-  '2026-02-17|Neggy|WFL': { ggr: -3732, bonus: 1030, ngr: -2702 },
-  '2026-02-18|Neggy|WFL': { ggr: -256, bonus: 30, ngr: -226 },
-  '2026-02-19|Neggy|WFL': { ggr: 395, bonus: 30, ngr: 425 },
-  '2026-02-20|Neggy|WFL': { ggr: -164, bonus: 0, ngr: -164 },
-  '2026-02-21|Neggy|WFL': { ggr: -669, bonus: 0, ngr: -669 },
-  '2026-02-22|Neggy|WFL': { ggr: 2768, bonus: 0, ngr: 2768 },
-  '2026-02-23|Neggy|WFL': { ggr: -8614, bonus: 0, ngr: -8614 },
-  '2026-02-24|Neggy|WFL': { ggr: -1217, bonus: 0, ngr: -1217 },
-  // Aether (WOOLFYBETS) / WFL
-  '2026-02-02|WoolFyBets|WFL': { ggr: 2307, bonus: 1120, ngr: 3427 },
-  '2026-02-03|WoolFyBets|WFL': { ggr: -18251, bonus: 448, ngr: -17803 },
-  '2026-02-04|WoolFyBets|WFL': { ggr: -240, bonus: 230, ngr: -10 },
-  '2026-02-05|WoolFyBets|WFL': { ggr: -684, bonus: 228, ngr: -455 },
-  '2026-02-06|WoolFyBets|WFL': { ggr: -1900, bonus: 60, ngr: -1840 },
-  '2026-02-07|WoolFyBets|WFL': { ggr: -379, bonus: 570, ngr: 191 },
-  '2026-02-08|WoolFyBets|WFL': { ggr: -2480, bonus: 30, ngr: -2450 },
-  '2026-02-09|WoolFyBets|WFL': { ggr: -3356, bonus: 0, ngr: -3356 },
-  '2026-02-10|WoolFyBets|WFL': { ggr: -332, bonus: 0, ngr: -332 },
-  '2026-02-11|WoolFyBets|WFL': { ggr: 7287, bonus: 0, ngr: 7287 },
-  '2026-02-12|WoolFyBets|WFL': { ggr: 2331, bonus: 50, ngr: 2381 },
-  '2026-02-13|WoolFyBets|WFL': { ggr: -155, bonus: 30, ngr: -125 },
-  '2026-02-14|WoolFyBets|WFL': { ggr: 2938, bonus: 0, ngr: 2938 },
-  '2026-02-15|WoolFyBets|WFL': { ggr: -90392, bonus: 50, ngr: -90342 },
-  '2026-02-16|WoolFyBets|WFL': { ggr: -4977, bonus: 0, ngr: -4977 },
-  '2026-02-17|WoolFyBets|WFL': { ggr: -1500, bonus: 0, ngr: -1500 },
-  '2026-02-18|WoolFyBets|WFL': { ggr: 5295, bonus: 0, ngr: 5295 },
-  '2026-02-19|WoolFyBets|WFL': { ggr: 982, bonus: 1030, ngr: 2012 },
-  '2026-02-20|WoolFyBets|WFL': { ggr: 3709, bonus: 30, ngr: 3739 },
-  '2026-02-21|WoolFyBets|WFL': { ggr: 7888, bonus: 150, ngr: 8038 },
-  '2026-02-22|WoolFyBets|WFL': { ggr: 4055, bonus: 1560, ngr: 5615 },
-  '2026-02-23|WoolFyBets|WFL': { ggr: -23220, bonus: 0, ngr: -23220 },
-  '2026-02-24|WoolFyBets|WFL': { ggr: -1718, bonus: 229, ngr: -1489 },
-  // Dogie / T2B
-  '2026-02-02|Dogie|T2B': { reg:1420, activePl:2357, validTurnover:18469643, ggr:-550146, bonus:123693, ngr:-426453, dep:2109490, totalWithdrawal:1635398 },
-  '2026-02-03|Dogie|T2B': { reg:2002, activePl:2487, validTurnover:20638630, ggr:-366632, bonus:92482, ngr:-274151, dep:2413443, totalWithdrawal:1634098 },
-  '2026-02-04|Dogie|T2B': { reg:2059, activePl:2848, validTurnover:20365294, ggr:-1000568, bonus:127943, ngr:-872625, dep:2553947, totalWithdrawal:1991570 },
-  '2026-02-05|Dogie|T2B': { reg:1681, activePl:2692, validTurnover:23160833, ggr:-612702, bonus:142264, ngr:-470438, dep:2029034, totalWithdrawal:1768608 },
-  '2026-02-06|Dogie|T2B': { reg:1109, activePl:2479, validTurnover:17843903, ggr:-576739, bonus:107737, ngr:-469003, dep:2200722, totalWithdrawal:1443654 },
-  '2026-02-07|Dogie|T2B': { reg:916, activePl:2124, validTurnover:16789236, ggr:-790382, bonus:89863, ngr:-700519, dep:2006314, totalWithdrawal:1673675 },
-  '2026-02-08|Dogie|T2B': { reg:1837, activePl:2448, validTurnover:15819968, ggr:-325466, bonus:105218, ngr:-220247, dep:1887784, totalWithdrawal:1667731 },
-  '2026-02-09|Dogie|T2B': { reg:901, activePl:2139, validTurnover:18112552, ggr:-897609, bonus:87987, ngr:-809621, dep:2276827, totalWithdrawal:1525291 },
-  '2026-02-10|Dogie|T2B': { reg:656, activePl:1946, validTurnover:14606824, ggr:-730996, bonus:82742, ngr:-648254, dep:1946819, totalWithdrawal:1142126 },
-  '2026-02-11|Dogie|T2B': { reg:766, activePl:1924, validTurnover:19114100, ggr:-122777, bonus:72278, ngr:-50499, dep:1819590, totalWithdrawal:1541597 },
-  '2026-02-12|Dogie|T2B': { reg:729, activePl:1774, validTurnover:19941619, ggr:-931643, bonus:77611, ngr:-854032, dep:1999877, totalWithdrawal:1477029 },
-  '2026-02-13|Dogie|T2B': { reg:843, activePl:1931, validTurnover:16647708, ggr:-906118, bonus:93179, ngr:-812940, dep:1963838, totalWithdrawal:1166381 },
-  '2026-02-14|Dogie|T2B': { reg:738, activePl:1905, validTurnover:13735442, ggr:-165319, bonus:72859, ngr:-92460, dep:1771982, totalWithdrawal:1574077 },
-  '2026-02-15|Dogie|T2B': { reg:710, activePl:1904, validTurnover:15818275, ggr:-711414, bonus:83111, ngr:-628303, dep:1980180, totalWithdrawal:1285979 },
-  '2026-02-16|Dogie|T2B': { reg:508, activePl:1707, validTurnover:15435091, ggr:-797924, bonus:77409, ngr:-720515, dep:1835063, totalWithdrawal:1165965 },
-  '2026-02-17|Dogie|T2B': { reg:845, activePl:1709, validTurnover:15954667, ggr:-127029, bonus:114099, ngr:-12930, dep:1532923, totalWithdrawal:1408492 },
-  '2026-02-18|Dogie|T2B': { reg:823, activePl:1661, validTurnover:15762902, ggr:-422870, bonus:95374, ngr:-327496, dep:1578565, totalWithdrawal:1318216 },
-  '2026-02-19|Dogie|T2B': { reg:789, activePl:1805, validTurnover:12956695, ggr:-1056525, bonus:75895, ngr:-980630, dep:1830499, totalWithdrawal:1069412 },
-  '2026-02-20|Dogie|T2B': { reg:1028, activePl:1886, validTurnover:11894001, ggr:-945467, bonus:93205, ngr:-852262, dep:1825567, totalWithdrawal:935470 },
-  '2026-02-21|Dogie|T2B': { reg:715, activePl:1868, validTurnover:16032881, ggr:-460328, bonus:69675, ngr:-390653, dep:1928158, totalWithdrawal:1452304 },
-  '2026-02-22|Dogie|T2B': { reg:651, activePl:1722, validTurnover:14254879, ggr:-707759, bonus:71426, ngr:-636333, dep:1673720, totalWithdrawal:1128762 },
-  '2026-02-23|Dogie|T2B': { reg:622, activePl:1679, validTurnover:14845796, ggr:206704, bonus:68018, ngr:274722, dep:1692087, totalWithdrawal:1067195 },
-  '2026-02-24|Dogie|T2B': { reg:553, activePl:1642, validTurnover:13202529, ggr:-498467, bonus:73828, ngr:-424638, dep:1343763, totalWithdrawal:1205273 },
-  '2026-02-25|Dogie|T2B': { reg:740, activePl:1605, validTurnover:13414625, ggr:-333717, bonus:69595, ngr:-264123, dep:1389905, totalWithdrawal:1184014 },
-  '2026-02-26|Dogie|T2B': { reg:1194, activePl:1822, validTurnover:13116424, ggr:-488737, bonus:69089, ngr:-419648, dep:1610823, totalWithdrawal:1498549 },
-  // Renejay / T2B
-  '2026-02-02|Renejay|T2B': { reg:4, activePl:57, validTurnover:515924, ggr:-44224, bonus:9795, ngr:-34429, dep:84422, totalWithdrawal:38920 },
-  '2026-02-03|Renejay|T2B': { reg:3, activePl:54, validTurnover:440285, ggr:-41889, bonus:1077, ngr:-40811, dep:45811, totalWithdrawal:15145 },
-  '2026-02-04|Renejay|T2B': { reg:9, activePl:63, validTurnover:247179, ggr:-15801, bonus:3292, ngr:-12509, dep:41490, totalWithdrawal:23330 },
-  '2026-02-05|Renejay|T2B': { reg:0, activePl:57, validTurnover:297473, ggr:-16728, bonus:9506, ngr:-7223, dep:49748, totalWithdrawal:42949 },
-  '2026-02-06|Renejay|T2B': { reg:439, activePl:109, validTurnover:373093, ggr:-33382, bonus:2594, ngr:-30788, dep:64444, totalWithdrawal:32851 },
-  '2026-02-07|Renejay|T2B': { reg:569, activePl:216, validTurnover:730890, ggr:-65917, bonus:15501, ngr:-50415, dep:121526, totalWithdrawal:44781 },
-  '2026-02-08|Renejay|T2B': { reg:284, activePl:217, validTurnover:771273, ggr:-44258, bonus:11885, ngr:-32373, dep:85866, totalWithdrawal:52227 },
-  '2026-02-09|Renejay|T2B': { reg:228, activePl:179, validTurnover:452759, ggr:-37345, bonus:4087, ngr:-33257, dep:65230, totalWithdrawal:29466 },
-  '2026-02-10|Renejay|T2B': { reg:1120, activePl:414, validTurnover:2476670, ggr:52849, bonus:37549, ngr:90398, dep:199758, totalWithdrawal:169883 },
-  '2026-02-11|Renejay|T2B': { reg:648, activePl:413, validTurnover:2446962, ggr:-45446, bonus:17776, ngr:-27670, dep:262715, totalWithdrawal:243611 },
-  '2026-02-12|Renejay|T2B': { reg:461, activePl:463, validTurnover:2457150, ggr:-113631, bonus:19098, ngr:-94532, dep:282354, totalWithdrawal:214167 },
-  '2026-02-13|Renejay|T2B': { reg:348, activePl:426, validTurnover:2331335, ggr:-76027, bonus:22324, ngr:-53703, dep:270160, totalWithdrawal:236022 },
-  '2026-02-14|Renejay|T2B': { reg:419, activePl:447, validTurnover:1898371, ggr:-145752, bonus:15482, ngr:-130271, dep:211797, totalWithdrawal:71743 },
-  '2026-02-15|Renejay|T2B': { reg:681, activePl:554, validTurnover:2489842, ggr:185570, bonus:23654, ngr:209224, dep:348136, totalWithdrawal:436439 },
-  '2026-02-16|Renejay|T2B': { reg:671, activePl:541, validTurnover:4029478, ggr:179055, bonus:30117, ngr:209173, dep:395735, totalWithdrawal:498200 },
-  '2026-02-17|Renejay|T2B': { reg:513, activePl:565, validTurnover:5072558, ggr:-234851, bonus:36060, ngr:-198791, dep:440188, totalWithdrawal:436023 },
-  '2026-02-18|Renejay|T2B': { reg:551, activePl:477, validTurnover:3081340, ggr:-277158, bonus:26412, ngr:-250745, dep:418698, totalWithdrawal:203713 },
-  '2026-02-19|Renejay|T2B': { reg:444, activePl:472, validTurnover:2831668, ggr:-237017, bonus:21822, ngr:-215195, dep:401624, totalWithdrawal:227898 },
-  '2026-02-20|Renejay|T2B': { reg:409, activePl:426, validTurnover:2558508, ggr:-22310, bonus:26458, ngr:4147, dep:317220, totalWithdrawal:237129 },
-  '2026-02-21|Renejay|T2B': { reg:288, activePl:451, validTurnover:2875641, ggr:-159876, bonus:19712, ngr:-140164, dep:298831, totalWithdrawal:228188 },
-  '2026-02-22|Renejay|T2B': { reg:199, activePl:342, validTurnover:2392901, ggr:-112590, bonus:16711, ngr:-95879, dep:282997, totalWithdrawal:148289 },
-  '2026-02-23|Renejay|T2B': { reg:220, activePl:354, validTurnover:2147429, ggr:-135664, bonus:16315, ngr:-119350, dep:267400, totalWithdrawal:134903 },
-  '2026-02-24|Renejay|T2B': { reg:211, activePl:359, validTurnover:2681876, ggr:-185289, bonus:12892, ngr:-172397, dep:298220, totalWithdrawal:125702 },
-  '2026-02-25|Renejay|T2B': { reg:244, activePl:349, validTurnover:2560308, ggr:-20727, bonus:13154, ngr:-7573, dep:273743, totalWithdrawal:178187 },
-  '2026-02-26|Renejay|T2B': { reg:364, activePl:435, validTurnover:3257002, ggr:-73670, bonus:24575, ngr:-49095, dep:412907, totalWithdrawal:401334 },
-  // H2wo / T2B
-  '2026-02-02|H2wo|T2B': { reg:524, activePl:278, validTurnover:1289446, ggr:44948, bonus:29676, ngr:74624, dep:152339, totalWithdrawal:175410 },
-  '2026-02-03|H2wo|T2B': { reg:459, activePl:389, validTurnover:2478365, ggr:-204261, bonus:21528, ngr:-182733, dep:315916, totalWithdrawal:190784 },
-  '2026-02-04|H2wo|T2B': { reg:295, activePl:289, validTurnover:1994814, ggr:-110160, bonus:16432, ngr:-93728, dep:246274, totalWithdrawal:159170 },
-  '2026-02-05|H2wo|T2B': { reg:375, activePl:305, validTurnover:1449544, ggr:-50025, bonus:19002, ngr:-31023, dep:230540, totalWithdrawal:188299 },
-  '2026-02-06|H2wo|T2B': { reg:167, activePl:303, validTurnover:2063818, ggr:-79503, bonus:14287, ngr:-65216, dep:260601, totalWithdrawal:214889 },
-  '2026-02-07|H2wo|T2B': { reg:89, activePl:213, validTurnover:1458591, ggr:-64460, bonus:11030, ngr:-53429, dep:168016, totalWithdrawal:78209 },
-  '2026-02-08|H2wo|T2B': { reg:233, activePl:233, validTurnover:2123549, ggr:2803, bonus:14292, ngr:17095, dep:238278, totalWithdrawal:170670 },
-  '2026-02-09|H2wo|T2B': { reg:152, activePl:220, validTurnover:1906632, ggr:-171988, bonus:8736, ngr:-163252, dep:183873, totalWithdrawal:145507 },
-  '2026-02-10|H2wo|T2B': { reg:139, activePl:210, validTurnover:1462902, ggr:-37111, bonus:27585, ngr:-9526, dep:152746, totalWithdrawal:130204 },
-  '2026-02-11|H2wo|T2B': { reg:100, activePl:197, validTurnover:923189, ggr:-32742, bonus:11350, ngr:-21393, dep:133605, totalWithdrawal:93631 },
-  '2026-02-12|H2wo|T2B': { reg:339, activePl:255, validTurnover:1446788, ggr:-135942, bonus:13928, ngr:-122014, dep:195826, totalWithdrawal:76115 },
-  '2026-02-13|H2wo|T2B': { reg:187, activePl:251, validTurnover:1427691, ggr:-56184, bonus:10968, ngr:-45216, dep:205681, totalWithdrawal:171985 },
-  '2026-02-14|H2wo|T2B': { reg:119, activePl:236, validTurnover:1426140, ggr:-32333, bonus:7293, ngr:-25041, dep:183822, totalWithdrawal:145430 },
-  '2026-02-15|H2wo|T2B': { reg:237, activePl:291, validTurnover:1390186, ggr:-80404, bonus:12958, ngr:-67446, dep:232444, totalWithdrawal:183826 },
-  '2026-02-16|H2wo|T2B': { reg:294, activePl:290, validTurnover:2849078, ggr:-30000, bonus:12950, ngr:-17050, dep:240216, totalWithdrawal:195304 },
-  '2026-02-17|H2wo|T2B': { reg:496, activePl:319, validTurnover:1669170, ggr:-100150, bonus:12659, ngr:-87491, dep:208424, totalWithdrawal:140597 },
-  '2026-02-18|H2wo|T2B': { reg:257, activePl:310, validTurnover:1405881, ggr:-71568, bonus:11565, ngr:-60002, dep:203028, totalWithdrawal:148273 },
-  '2026-02-19|H2wo|T2B': { reg:200, activePl:273, validTurnover:1213978, ggr:-33710, bonus:18410, ngr:-15300, dep:180591, totalWithdrawal:175981 },
-  '2026-02-20|H2wo|T2B': { reg:210, activePl:265, validTurnover:1700428, ggr:-117411, bonus:27356, ngr:-90055, dep:241459, totalWithdrawal:118384 },
-  '2026-02-21|H2wo|T2B': { reg:639, activePl:404, validTurnover:1813728, ggr:-148779, bonus:23643, ngr:-125136, dep:247740, totalWithdrawal:112337 },
-  '2026-02-22|H2wo|T2B': { reg:319, activePl:377, validTurnover:1738403, ggr:-66368, bonus:15050, ngr:-51318, dep:196667, totalWithdrawal:177576 },
-  '2026-02-23|H2wo|T2B': { reg:458, activePl:363, validTurnover:1622387, ggr:-100459, bonus:9500, ngr:-90959, dep:273695, totalWithdrawal:198968 },
-  '2026-02-24|H2wo|T2B': { reg:477, activePl:402, validTurnover:1584997, ggr:33513, bonus:20333, ngr:53847, dep:212019, totalWithdrawal:197736 },
-  '2026-02-25|H2wo|T2B': { reg:893, activePl:601, validTurnover:2739497, ggr:-212002, bonus:39154, ngr:-172848, dep:335346, totalWithdrawal:257135 },
-  '2026-02-26|H2wo|T2B': { reg:513, activePl:513, validTurnover:2798662, ggr:-104012, bonus:25555, ngr:-78458, dep:315811, totalWithdrawal:239243 },
-  // Yawi / T2B
-  '2026-02-02|Yawi|T2B': { reg:208, activePl:268, validTurnover:963725, ggr:-15016, bonus:26648, ngr:11632, dep:110523, totalWithdrawal:104406 },
-  '2026-02-03|Yawi|T2B': { reg:109, activePl:220, validTurnover:1134814, ggr:-90883, bonus:7518, ngr:-83365, dep:110444, totalWithdrawal:61914 },
-  '2026-02-04|Yawi|T2B': { reg:111, activePl:194, validTurnover:612928, ggr:-14806, bonus:5419, ngr:-9387, dep:98599, totalWithdrawal:74603 },
-  '2026-02-05|Yawi|T2B': { reg:200, activePl:206, validTurnover:881090, ggr:-53731, bonus:6583, ngr:-47148, dep:125840, totalWithdrawal:81165 },
-  '2026-02-06|Yawi|T2B': { reg:214, activePl:231, validTurnover:1468595, ggr:-77302, bonus:6972, ngr:-70330, dep:182908, totalWithdrawal:88100 },
-  '2026-02-07|Yawi|T2B': { reg:256, activePl:252, validTurnover:1376469, ggr:-49805, bonus:7955, ngr:-41850, dep:171529, totalWithdrawal:142149 },
-  '2026-02-08|Yawi|T2B': { reg:173, activePl:227, validTurnover:1289273, ggr:-78772, bonus:4562, ngr:-74210, dep:209711, totalWithdrawal:128546 },
-  '2026-02-09|Yawi|T2B': { reg:74, activePl:171, validTurnover:1006057, ggr:-83798, bonus:6242, ngr:-77556, dep:139874, totalWithdrawal:93754 },
-  '2026-02-10|Yawi|T2B': { reg:100, activePl:179, validTurnover:928695, ggr:-36607, bonus:8362, ngr:-28244, dep:116358, totalWithdrawal:96720 },
-  '2026-02-11|Yawi|T2B': { reg:88, activePl:164, validTurnover:639081, ggr:-47586, bonus:5510, ngr:-42076, dep:90968, totalWithdrawal:46978 },
-  '2026-02-12|Yawi|T2B': { reg:277, activePl:212, validTurnover:849618, ggr:10515, bonus:7441, ngr:17956, dep:106435, totalWithdrawal:118721 },
-  '2026-02-13|Yawi|T2B': { reg:88, activePl:181, validTurnover:1985950, ggr:-78059, bonus:7789, ngr:-70270, dep:126199, totalWithdrawal:87208 },
-  '2026-02-14|Yawi|T2B': { reg:145, activePl:172, validTurnover:1000394, ggr:-47497, bonus:7098, ngr:-40399, dep:167128, totalWithdrawal:107805 },
-  '2026-02-15|Yawi|T2B': { reg:260, activePl:235, validTurnover:1247049, ggr:-112329, bonus:18835, ngr:-93495, dep:199787, totalWithdrawal:114467 },
-  '2026-02-16|Yawi|T2B': { reg:124, activePl:209, validTurnover:1009675, ggr:-37889, bonus:6752, ngr:-31137, dep:153362, totalWithdrawal:84540 },
-  '2026-02-17|Yawi|T2B': { reg:103, activePl:194, validTurnover:985352, ggr:-71595, bonus:6634, ngr:-64961, dep:94884, totalWithdrawal:66336 },
-  '2026-02-18|Yawi|T2B': { reg:267, activePl:213, validTurnover:1028984, ggr:-65359, bonus:6751, ngr:-58608, dep:120259, totalWithdrawal:63737 },
-  '2026-02-19|Yawi|T2B': { reg:108, activePl:196, validTurnover:1382019, ggr:27821, bonus:11415, ngr:39236, dep:147034, totalWithdrawal:178151 },
-  '2026-02-20|Yawi|T2B': { reg:355, activePl:265, validTurnover:1435638, ggr:-21316, bonus:13434, ngr:-7882, dep:172421, totalWithdrawal:166208 },
-  '2026-02-21|Yawi|T2B': { reg:252, activePl:248, validTurnover:1732335, ggr:279147, bonus:10739, ngr:289887, dep:156323, totalWithdrawal:150140 },
-  '2026-02-22|Yawi|T2B': { reg:96, activePl:202, validTurnover:2573770, ggr:-395699, bonus:11724, ngr:-383975, dep:307467, totalWithdrawal:207298 },
-  '2026-02-23|Yawi|T2B': { reg:259, activePl:249, validTurnover:1071441, ggr:-62409, bonus:9350, ngr:-53058, dep:151913, totalWithdrawal:81228 },
-  '2026-02-24|Yawi|T2B': { reg:143, activePl:206, validTurnover:1138209, ggr:-21914, bonus:5774, ngr:-16140, dep:153270, totalWithdrawal:108375 },
-  '2026-02-25|Yawi|T2B': { reg:87, activePl:175, validTurnover:895549, ggr:-39270, bonus:5291, ngr:-33979, dep:90754, totalWithdrawal:104795 },
-  '2026-02-26|Yawi|T2B': { reg:73, activePl:176, validTurnover:1448192, ggr:16511, bonus:11831, ngr:28342, dep:159908, totalWithdrawal:164391 },
-  // Zico / T2B
-  '2026-02-02|Zico|T2B': { reg:44, activePl:19, validTurnover:27430, ggr:-424, bonus:8747, ngr:8323, dep:3915, totalWithdrawal:3750 },
-  '2026-02-03|Zico|T2B': { reg:141, activePl:17, validTurnover:71600, ggr:-4691, bonus:1099, ngr:-3592, dep:5583, totalWithdrawal:9850 },
-  '2026-02-04|Zico|T2B': { reg:99, activePl:24, validTurnover:25107, ggr:-5550, bonus:720, ngr:-4830, dep:5808, totalWithdrawal:1800 },
-  '2026-02-05|Zico|T2B': { reg:51, activePl:19, validTurnover:114129, ggr:-28649, bonus:4990, ngr:-23659, dep:26755, totalWithdrawal:2100 },
-  '2026-02-06|Zico|T2B': { reg:42, activePl:24, validTurnover:49709, ggr:-1782, bonus:893, ngr:-889, dep:6065, totalWithdrawal:0 },
-  '2026-02-07|Zico|T2B': { reg:4, activePl:9, validTurnover:22661, ggr:-886, bonus:40, ngr:-846, dep:2470, totalWithdrawal:3320 },
-  '2026-02-08|Zico|T2B': { reg:4, activePl:16, validTurnover:26931, ggr:-1840, bonus:140, ngr:-1700, dep:3761, totalWithdrawal:3200 },
-  '2026-02-09|Zico|T2B': { reg:0, activePl:10, validTurnover:47270, ggr:-7493, bonus:0, ngr:-7493, dep:9335, totalWithdrawal:2720 },
-  '2026-02-10|Zico|T2B': { reg:7, activePl:14, validTurnover:30550, ggr:1478, bonus:120, ngr:1598, dep:2341, totalWithdrawal:4000 },
-  '2026-02-11|Zico|T2B': { reg:8, activePl:8, validTurnover:23882, ggr:11856, bonus:70, ngr:11926, dep:1649, totalWithdrawal:14500 },
-  '2026-02-12|Zico|T2B': { reg:2, activePl:13, validTurnover:44092, ggr:-238, bonus:310, ngr:72, dep:3680, totalWithdrawal:2100 },
-  '2026-02-13|Zico|T2B': { reg:43, activePl:12, validTurnover:21865, ggr:-1518, bonus:0, ngr:-1518, dep:2490, totalWithdrawal:2800 },
-  '2026-02-14|Zico|T2B': { reg:4, activePl:12, validTurnover:76368, ggr:-2705, bonus:2040, ngr:-665, dep:5229, totalWithdrawal:1000 },
-  '2026-02-15|Zico|T2B': { reg:6, activePl:13, validTurnover:146686, ggr:43040, bonus:696, ngr:43736, dep:8205, totalWithdrawal:51915 },
-  '2026-02-16|Zico|T2B': { reg:25, activePl:22, validTurnover:359682, ggr:15424, bonus:4906, ngr:20329, dep:56034, totalWithdrawal:80400 },
-  '2026-02-17|Zico|T2B': { reg:4, activePl:9, validTurnover:141027, ggr:-29193, bonus:9822, ngr:-19370, dep:20403, totalWithdrawal:407 },
-  '2026-02-18|Zico|T2B': { reg:6, activePl:10, validTurnover:17597, ggr:-4097, bonus:71, ngr:-4026, dep:3790, totalWithdrawal:0 },
-  '2026-02-19|Zico|T2B': { reg:8, activePl:11, validTurnover:11662, ggr:-1980, bonus:256, ngr:-1724, dep:2520, totalWithdrawal:1536 },
-  '2026-02-20|Zico|T2B': { reg:8, activePl:9, validTurnover:9838, ggr:-2005, bonus:0, ngr:-2005, dep:2292, totalWithdrawal:0 },
-  '2026-02-21|Zico|T2B': { reg:3, activePl:10, validTurnover:22237, ggr:-3054, bonus:125, ngr:-2929, dep:4040, totalWithdrawal:1500 },
-  '2026-02-22|Zico|T2B': { reg:0, activePl:6, validTurnover:8583, ggr:-2820, bonus:320, ngr:-2500, dep:2500, totalWithdrawal:0 },
-  '2026-02-23|Zico|T2B': { reg:19, activePl:10, validTurnover:57194, ggr:-7401, bonus:2550, ngr:-4851, dep:10675, totalWithdrawal:5500 },
-  '2026-02-24|Zico|T2B': { reg:3, activePl:11, validTurnover:81073, ggr:-4914, bonus:85, ngr:-4829, dep:10820, totalWithdrawal:6700 },
-  '2026-02-25|Zico|T2B': { reg:0, activePl:3, validTurnover:17142, ggr:2543, bonus:0, ngr:2543, dep:6190, totalWithdrawal:1033 },
-  '2026-02-26|Zico|T2B': { reg:15, activePl:10, validTurnover:87749, ggr:-14379, bonus:2080, ngr:-12299, dep:13000, totalWithdrawal:9500 },
-  // Jape / T2B
-  '2026-02-02|Jape|T2B': { reg:122, activePl:41, validTurnover:256435, ggr:-21111, bonus:839, ngr:-20272, dep:32430, totalWithdrawal:15500 },
-  '2026-02-03|Jape|T2B': { reg:116, activePl:61, validTurnover:119594, ggr:2612, bonus:1034, ngr:3645, dep:22407, totalWithdrawal:21418 },
-  '2026-02-04|Jape|T2B': { reg:27, activePl:57, validTurnover:241159, ggr:621, bonus:1618, ngr:2238, dep:27883, totalWithdrawal:34015 },
-  '2026-02-05|Jape|T2B': { reg:26, activePl:43, validTurnover:170535, ggr:-18245, bonus:1436, ngr:-16808, dep:29748, totalWithdrawal:7500 },
-  '2026-02-06|Jape|T2B': { reg:19, activePl:44, validTurnover:249876, ggr:-18667, bonus:2378, ngr:-16289, dep:35977, totalWithdrawal:21100 },
-  '2026-02-07|Jape|T2B': { reg:19, activePl:42, validTurnover:255706, ggr:912, bonus:1577, ngr:2489, dep:42789, totalWithdrawal:43425 },
-  '2026-02-08|Jape|T2B': { reg:7, activePl:30, validTurnover:229846, ggr:-13758, bonus:809, ngr:-12949, dep:20756, totalWithdrawal:9170 },
-  '2026-02-09|Jape|T2B': { reg:8, activePl:29, validTurnover:216953, ggr:50923, bonus:796, ngr:51719, dep:13015, totalWithdrawal:59400 },
-  '2026-02-10|Jape|T2B': { reg:28, activePl:34, validTurnover:193770, ggr:9067, bonus:1147, ngr:10214, dep:20660, totalWithdrawal:37682 },
-  '2026-02-11|Jape|T2B': { reg:24, activePl:40, validTurnover:340251, ggr:-29883, bonus:1333, ngr:-28549, dep:44349, totalWithdrawal:13478 },
-  '2026-02-12|Jape|T2B': { reg:16, activePl:31, validTurnover:93076, ggr:-15266, bonus:861, ngr:-14405, dep:12876, totalWithdrawal:2100 },
-  '2026-02-13|Jape|T2B': { reg:31, activePl:41, validTurnover:328223, ggr:-26200, bonus:989, ngr:-25211, dep:34433, totalWithdrawal:11400 },
-  '2026-02-14|Jape|T2B': { reg:24, activePl:34, validTurnover:136602, ggr:-8164, bonus:3112, ngr:-5052, dep:32210, totalWithdrawal:21144 },
-  '2026-02-15|Jape|T2B': { reg:23, activePl:24, validTurnover:214887, ggr:-27889, bonus:799, ngr:-27090, dep:32530, totalWithdrawal:8310 },
-  '2026-02-16|Jape|T2B': { reg:12, activePl:26, validTurnover:207686, ggr:-26829, bonus:1087, ngr:-25743, dep:39040, totalWithdrawal:13383 },
-  '2026-02-17|Jape|T2B': { reg:20, activePl:28, validTurnover:283092, ggr:130632, bonus:1734, ngr:132367, dep:31205, totalWithdrawal:158000 },
-  '2026-02-18|Jape|T2B': { reg:19, activePl:28, validTurnover:265298, ggr:-17181, bonus:1543, ngr:-15638, dep:25831, totalWithdrawal:16850 },
-  '2026-02-19|Jape|T2B': { reg:16, activePl:29, validTurnover:425274, ggr:-70386, bonus:1347, ngr:-69039, dep:100214, totalWithdrawal:33000 },
-  '2026-02-20|Jape|T2B': { reg:46, activePl:34, validTurnover:759665, ggr:-96068, bonus:2180, ngr:-93888, dep:121665, totalWithdrawal:19700 },
-  '2026-02-21|Jape|T2B': { reg:108, activePl:42, validTurnover:310477, ggr:-31924, bonus:1311, ngr:-30613, dep:59384, totalWithdrawal:19954 },
-  '2026-02-22|Jape|T2B': { reg:36, activePl:40, validTurnover:223134, ggr:-21631, bonus:1471, ngr:-20160, dep:18191, totalWithdrawal:12635 },
-  '2026-02-23|Jape|T2B': { reg:26, activePl:37, validTurnover:236361, ggr:10710, bonus:1571, ngr:12280, dep:16451, totalWithdrawal:30350 },
-  '2026-02-24|Jape|T2B': { reg:18, activePl:33, validTurnover:353253, ggr:16695, bonus:2696, ngr:19391, dep:33692, totalWithdrawal:48600 },
-  '2026-02-25|Jape|T2B': { reg:18, activePl:35, validTurnover:249587, ggr:-15232, bonus:1151, ngr:-14081, dep:24263, totalWithdrawal:5655 },
-  '2026-02-26|Jape|T2B': { reg:9, activePl:37, validTurnover:518003, ggr:-12776, bonus:1081, ngr:-11695, dep:31440, totalWithdrawal:23545 },
-  // Ribo / T2B
-  '2026-02-03|Ribo|T2B': { reg:5, activePl:1, validTurnover:1542, ggr:374, bonus:0, ngr:374, dep:245, totalWithdrawal:0 },
-  '2026-02-04|Ribo|T2B': { reg:30, activePl:9, validTurnover:34819, ggr:-5341, bonus:370, ngr:-4971, dep:4660, totalWithdrawal:300 },
-  '2026-02-05|Ribo|T2B': { reg:11, activePl:5, validTurnover:4254, ggr:-1350, bonus:394, ngr:-955, dep:1000, totalWithdrawal:0 },
-  '2026-02-06|Ribo|T2B': { reg:79, activePl:25, validTurnover:30141, ggr:-5940, bonus:900, ngr:-5040, dep:7478, totalWithdrawal:1292 },
-  '2026-02-07|Ribo|T2B': { reg:47, activePl:19, validTurnover:99675, ggr:-6517, bonus:720, ngr:-5797, dep:4850, totalWithdrawal:168 },
-  '2026-02-08|Ribo|T2B': { reg:23, activePl:12, validTurnover:60118, ggr:-765, bonus:200, ngr:-565, dep:5444, totalWithdrawal:2500 },
-  '2026-02-09|Ribo|T2B': { reg:44, activePl:15, validTurnover:41692, ggr:-7886, bonus:322, ngr:-7564, dep:7639, totalWithdrawal:2000 },
-  '2026-02-10|Ribo|T2B': { reg:43, activePl:22, validTurnover:212268, ggr:-19262, bonus:1980, ngr:-17282, dep:26680, totalWithdrawal:7504 },
-  '2026-02-11|Ribo|T2B': { reg:31, activePl:19, validTurnover:89653, ggr:-7931, bonus:1420, ngr:-6511, dep:8373, totalWithdrawal:2600 },
-  '2026-02-12|Ribo|T2B': { reg:19, activePl:17, validTurnover:97631, ggr:-8754, bonus:1003, ngr:-7751, dep:11204, totalWithdrawal:4500 },
-  '2026-02-13|Ribo|T2B': { reg:19, activePl:19, validTurnover:70530, ggr:-3878, bonus:576, ngr:-3302, dep:7850, totalWithdrawal:3715 },
-  '2026-02-14|Ribo|T2B': { reg:21, activePl:20, validTurnover:41252, ggr:-6615, bonus:280, ngr:-6335, dep:7201, totalWithdrawal:600 },
-  '2026-02-15|Ribo|T2B': { reg:21, activePl:14, validTurnover:49272, ggr:3482, bonus:206, ngr:3688, dep:4696, totalWithdrawal:6900 },
-  '2026-02-16|Ribo|T2B': { reg:19, activePl:14, validTurnover:56349, ggr:-3657, bonus:550, ngr:-3107, dep:5085, totalWithdrawal:2900 },
-  '2026-02-17|Ribo|T2B': { reg:34, activePl:22, validTurnover:62739, ggr:-2998, bonus:979, ngr:-2020, dep:7450, totalWithdrawal:5349 },
-  '2026-02-18|Ribo|T2B': { reg:19, activePl:11, validTurnover:25525, ggr:-5868, bonus:470, ngr:-5398, dep:5100, totalWithdrawal:1200 },
-  '2026-02-19|Ribo|T2B': { reg:16, activePl:14, validTurnover:23444, ggr:-2946, bonus:485, ngr:-2461, dep:4068, totalWithdrawal:1200 },
-  '2026-02-20|Ribo|T2B': { reg:8, activePl:10, validTurnover:29104, ggr:-1396, bonus:830, ngr:-566, dep:3500, totalWithdrawal:1431 },
-  '2026-02-21|Ribo|T2B': { reg:20, activePl:12, validTurnover:31588, ggr:2324, bonus:540, ngr:2864, dep:6039, totalWithdrawal:10100 },
-  '2026-02-22|Ribo|T2B': { reg:17, activePl:14, validTurnover:46297, ggr:9111, bonus:480, ngr:9591, dep:3218, totalWithdrawal:13000 },
-  '2026-02-23|Ribo|T2B': { reg:48, activePl:21, validTurnover:34639, ggr:-6439, bonus:843, ngr:-5596, dep:6585, totalWithdrawal:200 },
-  '2026-02-24|Ribo|T2B': { reg:23, activePl:14, validTurnover:20217, ggr:-4826, bonus:430, ngr:-4396, dep:4041, totalWithdrawal:687 },
-  '2026-02-25|Ribo|T2B': { reg:15, activePl:14, validTurnover:37282, ggr:-872, bonus:470, ngr:-402, dep:8050, totalWithdrawal:7591 },
-  '2026-02-26|Ribo|T2B': { reg:5, activePl:18, validTurnover:42034, ggr:-4639, bonus:232, ngr:-4407, dep:5650, totalWithdrawal:800 },
-  // Krilla / T2B
-  '2026-02-23|Krilla|T2B': { reg:2, activePl:2, validTurnover:3585, ggr:-249, bonus:150, ngr:-99, dep:500, totalWithdrawal:400 },
-  '2026-02-24|Krilla|T2B': { reg:3, activePl:2, validTurnover:2041, ggr:-699, bonus:200, ngr:-499, dep:600, totalWithdrawal:100 },
-  '2026-02-25|Krilla|T2B': { reg:4, activePl:1, validTurnover:1184, ggr:-500, bonus:0, ngr:-500, dep:500, totalWithdrawal:0 },
-  '2026-02-26|Krilla|T2B': { reg:2, activePl:1, validTurnover:252, ggr:-199, bonus:0, ngr:-199, dep:0, totalWithdrawal:0 },
-  // Yuji / T2B
-  '2026-02-07|Yuji|T2B': { reg:24, activePl:6, validTurnover:18521, ggr:-889, bonus:0, ngr:-889, dep:9050, totalWithdrawal:500 },
-  '2026-02-08|Yuji|T2B': { reg:9, activePl:7, validTurnover:31061, ggr:-18297, bonus:50, ngr:-18247, dep:11000, totalWithdrawal:400 },
-  '2026-02-09|Yuji|T2B': { reg:6, activePl:2, validTurnover:9337, ggr:-1178, bonus:0, ngr:-1178, dep:2680, totalWithdrawal:1500 },
-  '2026-02-10|Yuji|T2B': { reg:6, activePl:3, validTurnover:2222, ggr:-499, bonus:0, ngr:-499, dep:700, totalWithdrawal:200 },
-  '2026-02-11|Yuji|T2B': { reg:19, activePl:6, validTurnover:12825, ggr:-1660, bonus:375, ngr:-1285, dep:1450, totalWithdrawal:0 },
-  '2026-02-12|Yuji|T2B': { reg:17, activePl:14, validTurnover:108841, ggr:19088, bonus:744, ngr:19832, dep:7643, totalWithdrawal:23193 },
-  '2026-02-13|Yuji|T2B': { reg:7, activePl:10, validTurnover:83334, ggr:2204, bonus:620, ngr:2824, dep:9855, totalWithdrawal:17000 },
-  '2026-02-14|Yuji|T2B': { reg:18, activePl:12, validTurnover:37376, ggr:-6965, bonus:388, ngr:-6577, dep:7950, totalWithdrawal:1000 },
-  '2026-02-15|Yuji|T2B': { reg:9, activePl:9, validTurnover:17613, ggr:-1136, bonus:50, ngr:-1086, dep:1901, totalWithdrawal:1000 },
-  '2026-02-16|Yuji|T2B': { reg:32, activePl:11, validTurnover:7195, ggr:-150, bonus:190, ngr:40, dep:1790, totalWithdrawal:499 },
-  '2026-02-17|Yuji|T2B': { reg:27, activePl:11, validTurnover:24927, ggr:-5424, bonus:0, ngr:-5424, dep:4950, totalWithdrawal:1000 },
-  '2026-02-18|Yuji|T2B': { reg:36, activePl:17, validTurnover:70163, ggr:-1765, bonus:540, ngr:-1225, dep:8986, totalWithdrawal:7531 },
-  '2026-02-19|Yuji|T2B': { reg:8, activePl:13, validTurnover:110959, ggr:-4146, bonus:180, ngr:-3966, dep:7950, totalWithdrawal:4331 },
-  '2026-02-20|Yuji|T2B': { reg:16, activePl:18, validTurnover:23712, ggr:-3800, bonus:393, ngr:-3407, dep:4759, totalWithdrawal:715 },
-  '2026-02-21|Yuji|T2B': { reg:13, activePl:13, validTurnover:10983, ggr:-909, bonus:160, ngr:-749, dep:2530, totalWithdrawal:1795 },
-  '2026-02-22|Yuji|T2B': { reg:10, activePl:12, validTurnover:16823, ggr:-1382, bonus:20, ngr:-1362, dep:2648, totalWithdrawal:1809 },
-  '2026-02-23|Yuji|T2B': { reg:6, activePl:10, validTurnover:19684, ggr:743, bonus:170, ngr:913, dep:3304, totalWithdrawal:3151 },
-  '2026-02-24|Yuji|T2B': { reg:13, activePl:13, validTurnover:158914, ggr:3993, bonus:340, ngr:4333, dep:8154, totalWithdrawal:13648 },
-  '2026-02-25|Yuji|T2B': { reg:27, activePl:12, validTurnover:63832, ggr:-2747, bonus:520, ngr:-2227, dep:4154, totalWithdrawal:1500 },
-  '2026-02-26|Yuji|T2B': { reg:18, activePl:14, validTurnover:42635, ggr:-1231, bonus:440, ngr:-791, dep:5600, totalWithdrawal:2433 },
-  // Wrecker / T2B
-  '2026-02-09|Wrecker|T2B': { reg:40, activePl:13, validTurnover:19844, ggr:-1979, bonus:470, ngr:-1509, dep:4195, totalWithdrawal:400 },
-  '2026-02-10|Wrecker|T2B': { reg:51, activePl:29, validTurnover:304943, ggr:-9550, bonus:2948, ngr:-6602, dep:16004, totalWithdrawal:4608 },
-  '2026-02-11|Wrecker|T2B': { reg:29, activePl:25, validTurnover:93124, ggr:-9995, bonus:1393, ngr:-8601, dep:15303, totalWithdrawal:12607 },
-  '2026-02-12|Wrecker|T2B': { reg:18, activePl:20, validTurnover:239846, ggr:-26929, bonus:860, ngr:-26069, dep:39952, totalWithdrawal:14000 },
-  '2026-02-13|Wrecker|T2B': { reg:16, activePl:18, validTurnover:127288, ggr:-8211, bonus:1803, ngr:-6408, dep:10267, totalWithdrawal:4000 },
-  '2026-02-14|Wrecker|T2B': { reg:4, activePl:15, validTurnover:46525, ggr:-1775, bonus:377, ngr:-1399, dep:6199, totalWithdrawal:4800 },
-  '2026-02-15|Wrecker|T2B': { reg:2, activePl:11, validTurnover:34114, ggr:-6213, bonus:370, ngr:-5843, dep:5820, totalWithdrawal:320 },
-  '2026-02-16|Wrecker|T2B': { reg:0, activePl:6, validTurnover:7208, ggr:-1463, bonus:68, ngr:-1395, dep:1300, totalWithdrawal:0 },
-  '2026-02-17|Wrecker|T2B': { reg:1, activePl:9, validTurnover:8285, ggr:-1199, bonus:100, ngr:-1099, dep:1600, totalWithdrawal:500 },
-  '2026-02-18|Wrecker|T2B': { reg:51, activePl:22, validTurnover:29359, ggr:-4795, bonus:1200, ngr:-3595, dep:5790, totalWithdrawal:450 },
-  '2026-02-19|Wrecker|T2B': { reg:31, activePl:24, validTurnover:89276, ggr:25955, bonus:1312, ngr:27267, dep:7911, totalWithdrawal:36722 },
-  '2026-02-20|Wrecker|T2B': { reg:7, activePl:12, validTurnover:55714, ggr:-5156, bonus:175, ngr:-4981, dep:6550, totalWithdrawal:1590 },
-  '2026-02-21|Wrecker|T2B': { reg:230, activePl:29, validTurnover:39555, ggr:-4858, bonus:660, ngr:-4198, dep:5827, totalWithdrawal:500 },
-  '2026-02-22|Wrecker|T2B': { reg:19, activePl:31, validTurnover:53736, ggr:-5019, bonus:825, ngr:-4194, dep:7278, totalWithdrawal:3977 },
-  '2026-02-23|Wrecker|T2B': { reg:146, activePl:32, validTurnover:93230, ggr:-7947, bonus:3120, ngr:-4827, dep:10954, totalWithdrawal:3019 },
-  '2026-02-24|Wrecker|T2B': { reg:15, activePl:35, validTurnover:51706, ggr:-7066, bonus:1422, ngr:-5643, dep:7648, totalWithdrawal:3938 },
-  '2026-02-25|Wrecker|T2B': { reg:33, activePl:39, validTurnover:86435, ggr:-17878, bonus:1588, ngr:-16290, dep:18695, totalWithdrawal:1700 },
-  '2026-02-26|Wrecker|T2B': { reg:36, activePl:40, validTurnover:277683, ggr:-11364, bonus:4270, ngr:-7094, dep:17682, totalWithdrawal:5265 },
-  // Trixie / T2B
-  '2026-02-21|Trixie|T2B': { reg:9, activePl:3, validTurnover:1663, ggr:-643, bonus:250, ngr:-393, dep:700, totalWithdrawal:0 },
-  '2026-02-22|Trixie|T2B': { reg:54, activePl:15, validTurnover:82663, ggr:-6448, bonus:1194, ngr:-5254, dep:7747, totalWithdrawal:1300 },
-  '2026-02-23|Trixie|T2B': { reg:55, activePl:18, validTurnover:44269, ggr:-1180, bonus:978, ngr:-202, dep:5203, totalWithdrawal:0 },
-  '2026-02-24|Trixie|T2B': { reg:10, activePl:11, validTurnover:37152, ggr:-2746, bonus:580, ngr:-2166, dep:4552, totalWithdrawal:3900 },
-  '2026-02-25|Trixie|T2B': { reg:6, activePl:6, validTurnover:14753, ggr:-1672, bonus:40, ngr:-1632, dep:500, totalWithdrawal:400 },
-  '2026-02-26|Trixie|T2B': { reg:1, activePl:6, validTurnover:8463, ggr:-337, bonus:210, ngr:-127, dep:1100, totalWithdrawal:1000 },
-};
-
 // ─── Date Range Picker ───────────────────────────────────────────────────────
 function DateRangePicker({ startDate, endDate, onStartChange, onEndChange, minDate, maxDate }) {
   const [open, setOpen] = React.useState(false);
@@ -1011,17 +413,33 @@ export default function App() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchAllRows = async (table, extraQuery) => {
+    const PAGE = 1000;
+    let all = [], from = 0;
+    while (true) {
+      let q = supabase.from(table).select('*').range(from, from + PAGE - 1);
+      if (extraQuery) q = extraQuery(q);
+      else q = q.order('key', { ascending: true }); // stable pagination order
+      const { data: rows, error } = await q;
+      if (error) {
+        console.error(`[fetchAllRows] ${table} page ${from}: error`, error.message || error);
+        break;
+      }
+      if (!rows || rows.length === 0) break;
+      all = all.concat(rows);
+      console.log(`[fetchAllRows] ${table} page ${from}: got ${rows.length} rows (total so far: ${all.length})`);
+      if (rows.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  };
+
   const fetchData = async () => {
     setLoading(true);
-    const { data: rows, error } = await supabase
-      .from('campaigns')
-      .select('*')
-      .order('date', { ascending: true });
-    if (!error) {
-      // Normalize streamer names against the alias dictionary so that CSV imports
-      // with raw names like "AKOSI DOGIE" are treated as "Dogie" everywhere.
+    const rows = await fetchAllRows('campaigns', q => q.order('date', { ascending: true }));
+    if (rows.length > 0) {
       const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const normalized = (rows || []).map(r => {
+      const normalized = rows.map(r => {
         const alias = STREAMER_ALIASES[norm(r.streamer)];
         return alias ? { ...r, streamer: alias } : r;
       });
@@ -1061,38 +479,37 @@ export default function App() {
   // --- ADS REPORT DATA ---
   const [adsReportData, setAdsReportData] = useState({});
   const fetchAdsReport = async () => {
-    const { data: rows } = await supabase.from('ads_report').select('*');
-    if (rows) {
-      const obj = {};
-      rows.forEach(r => { obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, boosting: r.boosting }; });
-      setAdsReportData(obj);
-    }
+    const rows = await fetchAllRows('ads_report');
+    if (rows.length === 0) return;
+    const obj = {};
+    rows.forEach(r => { obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, boosting: r.boosting }; });
+    setAdsReportData(prev => ({ ...prev, ...obj }));
   };
   useEffect(() => { fetchAdsReport(); }, []);
 
   // --- CREATOR PERF DATA ---
   const [creatorPerfData, setCreatorPerfData] = useState({});
   const fetchCreatorPerf = async () => {
-    const { data: rows } = await supabase.from('creator_perf').select('*');
-    if (rows) {
-      const obj = {};
-      rows.forEach(r => {
-        obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
-      });
-      setCreatorPerfData(obj);
-    }
+    const rows = await fetchAllRows('creator_perf');
+    console.log('[fetchCreatorPerf] total rows fetched:', rows.length);
+    if (rows.length === 0) return;
+    const obj = {};
+    rows.forEach(r => {
+      obj[r.key] = { ggr: r.ggr, bonus: r.bonus, ngr: r.ngr, activePl: r.active_pl, validTurnover: r.valid_turnover, totalWithdrawal: r.total_withdrawal, reg: r.reg, dep: r.dep, status: r.status };
+    });
+    console.log('[fetchCreatorPerf] sample keys:', Object.keys(obj).slice(0, 3));
+    setCreatorPerfData(prev => ({ ...prev, ...obj }));
   };
   useEffect(() => { fetchCreatorPerf(); }, []);
 
   // --- NO STREAM DATA ---
   const [noStreamData, setNoStreamData] = useState({});
   const fetchNoStream = async () => {
-    const { data: rows } = await supabase.from('no_stream').select('*');
-    if (rows) {
-      const obj = {};
-      rows.forEach(r => { obj[r.key] = true; });
-      setNoStreamData(obj);
-    }
+    const rows = await fetchAllRows('no_stream');
+    if (rows.length === 0) return;
+    const obj = {};
+    rows.forEach(r => { obj[r.key] = true; });
+    setNoStreamData(prev => ({ ...prev, ...obj }));
   };
   useEffect(() => { fetchNoStream(); }, []);
 
@@ -1258,7 +675,7 @@ export default function App() {
   };
 
   const openEditModal = (item) => {
-    setEditingId(data.indexOf(item));
+    setEditingId(item.id);
     const { id: _id, ...rest } = item;
     setFormValues({ status: 'Pending', ...rest, spend: String(item.spend), reg: String(item.reg), dep: String(item.dep) });
     setShowModal(true);
@@ -1269,12 +686,10 @@ export default function App() {
     const { id: _id, ...formClean } = formValues;
     const entry = { ...formClean, spend: parseFloat(formClean.spend) || 0, reg: parseInt(formClean.reg) || 0, dep: parseFloat(formClean.dep) || 0 };
     if (editingId !== null) {
-      const item = data[editingId];
+      const item = data.find(d => d.id === editingId);
       const { error } = await supabase.from('campaigns').update(entry).eq('id', item.id);
       if (!error) {
-        const updated = [...data];
-        updated[editingId] = { ...item, ...entry };
-        setData(updated);
+        setData(prev => prev.map(d => d.id === editingId ? { ...d, ...entry } : d));
         await logEdit('edit', item.id, item, entry);
       }
     } else {
@@ -1534,8 +949,9 @@ export default function App() {
     if (f.includes('rollem') || /\brlm\b/.test(f) || f.includes('_rlm') || f.includes('-rlm') || f.includes(' rlm')) return 'RLM';
     if (/\bwfl\b/.test(f) || f.includes('_wfl') || f.includes('-wfl') || f.includes(' wfl') || f.includes('wfl-88') || f.includes('wfl88')) return 'WFL';
     if (/\bcow\b/.test(f) || f.includes('cashonwins') || f.includes('cash on wins')) return 'COW';
+    if (f.includes('perya') || /\bperya\b/.test(f)) return 'PERYA';
     // Generic fallback: grab any site code token
-    const m = f.match(/\b(t2b|rlm|wfl|cow)\b/);
+    const m = f.match(/\b(t2b|rlm|wfl|cow|perya)\b/);
     if (m) { const map = { t2b: 'T2B', rlm: 'RLM', wfl: 'WFL', cow: 'COW' }; return map[m[1]] || ''; }
     return '';
   }
@@ -2018,6 +1434,7 @@ export default function App() {
   const [campMapping,   setCampMapping]   = useState({});
   const [campPreview,   setCampPreview]   = useState([]);
   const [campSideTable, setCampSideTable] = useState({});
+  const [sheetSummary,  setSheetSummary]  = useState(null); // { used: [{name,count}], skipped: [name] }
   const campRequiredFields = ['date', 'site', 'streamer'];
   const campAllFields      = ['date', 'site', 'streamer', 'spend', 'reg', 'dep', 'type', 'link'];
 
@@ -2169,9 +1586,19 @@ export default function App() {
       let mergedSideTable = {};
       let firstMapping = null;
 
+      // Sheets whose names match these words are summary/guide sheets — not raw campaign data.
+      const NON_DATA_SHEET_RE = /\b(report(ing)?|guide|dashboard|summary|overview)\b/i;
+      const sheetResults = { used: [], skipped: [] };
+
       sheets.forEach(sheet => {
+        // Skip obvious non-data sheets by name (e.g. "WFL REPORTING", "MEDIA BUYER GUIDE")
+        if (NON_DATA_SHEET_RE.test(sheet.name)) {
+          sheetResults.skipped.push(sheet.name);
+          return;
+        }
+
         const { headers, rows, sideTable } = parseFlatCSV(sheet.csv);
-        if (!headers.length) return; // skip sheets with no recognisable data
+        if (!headers.length) { sheetResults.skipped.push(sheet.name); return; }
         const mapping = autoMapColumns(headers);
 
         // Per-sheet site inference: site column > sheet name > filename > content
@@ -2180,22 +1607,28 @@ export default function App() {
           if (siteHint) mapping._defaultSite = siteHint;
         }
 
+        // Build preview to validate this sheet has actual usable rows
+        const preview = buildCampaignPreview(rows, mapping);
+        if (preview.length === 0) {
+          // Sheet produced no valid (date + streamer) rows — skip it
+          sheetResults.skipped.push(sheet.name);
+          return;
+        }
+
+        sheetResults.used.push({ name: sheet.name, count: preview.length });
         if (!firstMapping) { firstMapping = mapping; mergedHeaders = headers; }
 
         // Collect rows — use this sheet's own mapping so column offsets are correct
-        const preview = buildCampaignPreview(rows, mapping);
         mergedRows = mergedRows.concat(rows);
-        // Store preview rows tagged with this sheet's mapping for accurate column reads
-        // We accumulate the final preview directly here instead of re-deriving it later
         mergedSideTable = { ...mergedSideTable, ...(sideTable || {}) };
 
         // Accumulate preview directly (avoids re-running buildCampaignPreview on mixed rows)
-        // We'll use a special sentinel to pass pre-built preview
         if (!firstMapping._prebuiltPreview) firstMapping._prebuiltPreview = [];
         firstMapping._prebuiltPreview = firstMapping._prebuiltPreview.concat(preview);
       });
 
       if (!firstMapping) { alert('❌ No usable data found in this XLSX file.'); return; }
+      setSheetSummary(sheetResults);
 
       importRawRef.current = { name: file.name, content: sheets.map(s=>s.csv).join('\n\n'), size: file.size, binaryContent: rawBinary };
 
@@ -2273,7 +1706,15 @@ export default function App() {
       });
     });
     if (upsertRows.length > 0) {
-      await supabase.from('creator_perf').upsert(upsertRows, { onConflict: 'key' });
+      // Deduplicate by key — PostgreSQL rejects upserts where the same key appears twice in one batch
+      const deduped = Object.values(
+        upsertRows.reduce((acc, row) => { acc[row.key] = row; return acc; }, {})
+      );
+      const { error: upsertErr } = await supabase.from('creator_perf').upsert(deduped, { onConflict: 'key' });
+      if (upsertErr) {
+        console.error('[EOD import] upsert error:', upsertErr.message || upsertErr);
+        alert(`⚠️ EOD data saved locally but failed to persist to database:\n${upsertErr.message}\n\nYour data will be lost on refresh. Check console for details.`);
+      }
     }
     setCreatorPerfData(newPerf);
     setImportResult({ imported: count, skipped: 0, mode: 'eod' });
@@ -2291,7 +1732,7 @@ export default function App() {
     // Separate rows: truly new vs existing duplicates
     const dupRows    = campPreview.map(e => ({ preview: e, existing: findDup(e) })).filter(x => x.existing);
     const newEntries = campPreview.filter(e => !findDup(e));
-    const toImport   = skipDuplicates ? newEntries : campPreview.filter(e => !findDup(e));
+    const toImport   = skipDuplicates ? newEntries : campPreview;
     const skipped    = campPreview.length - toImport.length - dupRows.filter(x => x.preview.spend > 0 && x.existing.spend === 0).length;
 
     // For duplicate rows where old spend=0 but new spend>0, update spend in DB
@@ -2415,6 +1856,7 @@ export default function App() {
     setCampRawRows([]);
     setCampMapping({});
     setCampPreview([]);
+    setSheetSummary(null);
     setImportResult(null);
     setImporting(false);
   };
@@ -2441,18 +1883,14 @@ export default function App() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  // Auto-initialize date range from data, or expand it if new data goes beyond the current selection
+  // Auto-initialize date range only on first load (when dates are null)
   useEffect(() => {
-    if (!minDate) return;
-    if (!startDate) setStartDate(minDate);           // first load — set from data
-    else if (minDate < startDate) setStartDate(minDate); // new data extends earlier
-  }, [minDate]);
+    if (minDate && !startDate) setStartDate(minDate);
+  }, [minDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!maxDate) return;
-    if (!endDate) setEndDate(maxDate);               // first load — set from data
-    else if (maxDate > endDate) setEndDate(maxDate); // new data extends later
-  }, [maxDate]);
+    if (maxDate && !endDate) setEndDate(maxDate);
+  }, [maxDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- DERIVED METRICS ---
   const filteredData = useMemo(() => {
@@ -2630,13 +2068,12 @@ export default function App() {
       if (date < startDate || date > endDate) return;
       if (!daily[date]) daily[date] = { date, spend: 0, dep: 0, ggr: 0, bonus: 0, ngr: 0 };
       daily[date].dep += parseFloat(val.dep) || 0;
-      daily[date].ggr   += parseFloat(val.ggr)   || 0;
+      daily[date].ggr   -= parseFloat(val.ggr)   || 0;
       daily[date].bonus += parseFloat(val.bonus)  || 0;
-      daily[date].ngr   += parseFloat(val.ngr)    || 0;
+      daily[date].ngr   -= parseFloat(val.ngr)    || 0;
     });
     return Object.values(daily)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map(d => ({ ...d, chartGgr: Math.abs(d.ggr), chartNgr: Math.abs(d.ngr) }));
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [filteredData, creatorPerfData, startDate, endDate, filterSite, filterStreamer]);
 
   // Format currency
@@ -2813,8 +2250,6 @@ export default function App() {
                 endDate={endDate}
                 onStartChange={setStartDate}
                 onEndChange={setEndDate}
-                minDate={minDate}
-                maxDate={maxDate}
               />
               <div className="flex items-center gap-0 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-visible divide-x divide-slate-100 dark:divide-slate-700">
                   <FilterDropdown
@@ -3059,6 +2494,7 @@ export default function App() {
                   contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 8px 24px -4px rgb(0 0 0 / 0.12)', fontSize: 12, padding: '10px 14px' }}
                   labelFormatter={str => { const d = new Date(str); return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }); }}
                   formatter={(value, name) => [formatPHP(value), name]}
+                  itemSorter={() => -1}
                 />
 
                 {/* Brush zoom */}
@@ -3072,9 +2508,9 @@ export default function App() {
                 {/* Areas (filled) */}
                 {!hiddenSeries.spend && <Area type="monotone" dataKey="spend" name="Ad Spend" stroke="#ef4444" strokeWidth={2} fill="url(#gradSpend)" dot={{ r: 3, fill: '#ef4444', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
                 {!hiddenSeries.dep   && <Area type="monotone" dataKey="dep"   name="Deposits" stroke="#10b981" strokeWidth={2} fill="url(#gradDep)"   dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
-                {!hiddenSeries.ggr   && <Area type="monotone" dataKey="chartGgr" name="GGR"   stroke="#f59e0b" strokeWidth={2} fill="url(#gradGGR)"   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ggr   && <Area type="monotone" dataKey="ggr"      name="GGR"   stroke="#f59e0b" strokeWidth={2} fill="url(#gradGGR)"   dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
                 {!hiddenSeries.bonus && <Area type="monotone" dataKey="bonus"    name="Bonus" stroke="#a855f7" strokeWidth={2} fill="url(#gradBonus)" dot={{ r: 3, fill: '#a855f7', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
-                {!hiddenSeries.ngr   && <Area type="monotone" dataKey="chartNgr" name="NGR"   stroke="#6366f1" strokeWidth={2} fill="url(#gradNGR)"   dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
+                {!hiddenSeries.ngr   && <Area type="monotone" dataKey="ngr"      name="NGR"   stroke="#6366f1" strokeWidth={2} fill="url(#gradNGR)"   dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -3210,7 +2646,6 @@ export default function App() {
                   <th className="p-3 font-semibold">Site</th>
                   <th className="p-3 font-semibold">Streamer</th>
                   <th className="p-3 font-semibold">Format</th>
-                  <th className="p-3 font-semibold">Status</th>
                   <th className="p-3 font-semibold">Link</th>
                   <th className="p-3 font-semibold text-right">Spend</th>
                   <th className="p-3 font-semibold text-right">Registers</th>
@@ -3240,13 +2675,6 @@ export default function App() {
                       }`}>
                         {item.type}
                       </span>
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                        (item.status || 'Pending') === 'Success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        (item.status || 'Pending') === 'Failed'  ? 'bg-red-50 text-red-600 border-red-200' :
-                        'bg-amber-50 text-amber-600 border-amber-200'
-                      }`}>{item.status || 'Pending'}</span>
                     </td>
                     <td className="p-3">
                       {item.link ? (
@@ -3753,6 +3181,23 @@ export default function App() {
                         ))}
                       </div>
                     </div>
+                    {sheetSummary && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Sheets detected</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {sheetSummary.used.map(s => (
+                            <span key={s.name} className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-2 py-0.5 rounded-full">
+                              {s.name} <span className="opacity-60">({s.count})</span>
+                            </span>
+                          ))}
+                          {sheetSummary.skipped.map(name => (
+                            <span key={name} className="bg-slate-100 text-slate-400 border border-slate-200 text-xs px-2 py-0.5 rounded-full line-through">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-3 text-xs">
                       <span className="bg-emerald-50 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg">{newCount} new rows</span>
                       {dupCount > 0 && <span className="bg-amber-50 text-amber-700 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1"><AlertTriangle size={12}/> {dupCount} duplicates</span>}
@@ -3766,7 +3211,6 @@ export default function App() {
                               {['date','site','streamer','spend','reg','dep','type'].map(f => (
                                 <th key={f} className="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide whitespace-nowrap">{f}</th>
                               ))}
-                              <th className="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">Status</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -3781,9 +3225,6 @@ export default function App() {
                                   <td className="px-3 py-1.5 text-right dark:text-slate-200">{row.reg}</td>
                                   <td className="px-3 py-1.5 text-right dark:text-slate-200">{row.dep?.toLocaleString()}</td>
                                   <td className="px-3 py-1.5 dark:text-slate-200">{row.type}</td>
-                                  <td className="px-3 py-1.5 text-center">
-                                    {dup ? <span className="text-amber-600 font-semibold">Duplicate</span> : <span className="text-emerald-600 font-semibold">New</span>}
-                                  </td>
                                 </tr>
                               );
                             })}
@@ -4556,10 +3997,10 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
     return { spend: allSpend, dep: allDep, reg: perfReg, ggr: perfGGR, bonus: perfBonus, ngr: allNGR, efficacyRate: allEfficacy };
   }, [data, creatorPerfData, startDate, endDate]);
 
-  // Lift summary up to header
+  // Lift summary up to header — use per-streamer totals, not grand totals
   React.useEffect(() => {
-    onSummaryChange({ ...allTotals, streams: totalStreams, reels: totalReels });
-  }, [allTotals.spend, allTotals.dep, allTotals.reg, allTotals.ggr, allTotals.bonus, allTotals.ngr, allTotals.efficacyRate, totalStreams, totalReels]);
+    onSummaryChange({ ...totals, efficacyRate: totalEfficacy, streams: totalStreams, reels: totalReels });
+  }, [totals.spend, totals.dep, totals.reg, totals.ggr, totals.bonus, totals.ngr, totalEfficacy, totalStreams, totalReels, onSummaryChange]);
 
   // Index of the last actual (non-noStream) row for PENDING badge — based on date-sorted order
   const lastEntryDate = rows.filter(r => !r.noStream).at(-1)?.date;
@@ -4702,14 +4143,13 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                     </th>
                   );
                 })}
-                <th className="px-2 py-2 text-center font-semibold bg-green-900">Status</th>
                 <th className="px-2 py-2 text-center font-semibold bg-green-900">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
+                  <td colSpan={11} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500 text-sm">
                     No data for <strong>{selectedStreamer}</strong> in the selected date range. Use <span className="text-amber-600 dark:text-amber-400 font-semibold">Mark No Stream</span> to record days with no activity.
                   </td>
                 </tr>
@@ -4739,15 +4179,6 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                     <td className={`px-2 py-2 text-right ${(row.ggr || 0) >= 0 ? 'text-slate-600 dark:text-slate-400' : 'text-red-500'}`}>{fmtVal(row.ggr)}</td>
                     <td className="px-2 py-2 text-right text-amber-600">{fmtVal(row.bonus)}</td>
                     <td className={`px-2 py-2 text-right ${(row.ngr || 0) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmtVal(row.ngr)}</td>
-                    <td className="px-2 py-2 text-center">
-                      {row.hasData !== false ? (() => {
-                        const s = row.status != null ? row.status : (row.date === lastEntryDate ? 'Pending' : 'Success');
-                        const cls = s === 'Success' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
-                          : s === 'Failed' ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
-                          : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700';
-                        return <span className={`px-1.5 py-0.5 rounded text-xs font-bold border ${cls}`}>{s.toUpperCase()}</span>;
-                      })() : <span className="text-slate-300 dark:text-slate-600">—</span>}
-                    </td>
                     <td className="px-2 py-2 text-center">
                       <div className="flex items-center justify-center gap-0.5">
                       {row.hasData !== false && (
@@ -4783,7 +4214,7 @@ function CreatorReportView({ layoutMode, data, startDate, endDate, creatorPerfDa
                   {/* Inline entries sub-row */}
                   {expandedRow === row.date && row.hasData !== false && (
                     <tr className="bg-indigo-50/60 dark:bg-indigo-900/15">
-                      <td colSpan={12} className="px-6 py-3">
+                      <td colSpan={11} className="px-6 py-3">
                         <div className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">Campaign Entries — {fmtDate(row.date)}</div>
                         <table className="w-full text-xs">
                           <thead>
